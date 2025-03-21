@@ -30,8 +30,8 @@ class OpenChaseMainScreen extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final String logoPath =
         brightness == Brightness.light
-            ? 'images/logo_light_1024.png'
-            : 'images/logo_dark_1024.png';
+            ? 'images/Logo_light_1024.png'
+            : 'images/Logo_dark_1024.png';
 
     return Scaffold(
       body: Column(
