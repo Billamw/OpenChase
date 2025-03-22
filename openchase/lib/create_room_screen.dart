@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 
 class CreateRoomScreen extends StatefulWidget {
@@ -15,7 +14,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
 
   // Generate a random 4-letter code (A-Z)
   void _generateRandomCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
     _generatedCode =
         List.generate(4, (_) => chars[Random().nextInt(chars.length)]).join();
   }
@@ -37,95 +36,93 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Display the generated code
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  _generatedCode,
-                  style: const TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 163, 73, 164),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          double padding =
+              constraints.maxWidth > 600 ? 100 : 16; // Adjust based on width
+
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: padding),
+            child: Column(
+              children: [
+                // Display the generated code
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: Text(
+                      _generatedCode,
+                      style: const TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: Color.fromARGB(255, 163, 73, 164),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
 
-            // Add some spacing
-            const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-            // Name input field
-            TextFormField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Room Name',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a room name';
-                }
-                return null;
-              },
-            ),
-
-            // Add some spacing
-            const SizedBox(height: 20),
-
-            // Action buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Cancel button
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () {
-                    Navigator.pop(context);
+                // Name input field
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Room Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a room name';
+                    }
+                    return null;
                   },
                 ),
 
-                // Create room button
-                ElevatedButton(
-                  child: const Text('Create Room'),
-                  onPressed: () async {
-                    // Get the name from the input field
-                    String name = _nameController.text.trim();
+                const SizedBox(height: 20),
 
-                    if (name.isEmpty) {
-                      // Show error message
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter a room name'),
-                        ),
-                      );
-                      return;
-                    }
+                // Action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ElevatedButton(
+                      child: const Text('Create Room'),
+                      onPressed: () async {
+                        String name = _nameController.text.trim();
+                        if (name.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a room name'),
+                            ),
+                          );
+                          return;
+                        }
 
-                    // Here you would typically save the room data and navigate back
-                    // For now, we'll just show a success message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Room created! Code: $_generatedCode'),
-                      ),
-                    );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Room created! Code: $_generatedCode',
+                            ),
+                          ),
+                        );
 
-                    // Go back to main screen
-                    Navigator.pop(context);
-                  },
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
