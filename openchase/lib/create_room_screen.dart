@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class CreateRoomScreen extends StatefulWidget {
-  const CreateRoomScreen({Key? key}) : super(key: key);
+  const CreateRoomScreen({super.key});
 
   @override
   _CreateRoomScreenState createState() => _CreateRoomScreenState();
@@ -115,6 +115,8 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                         );
 
                         Navigator.pop(context);
+
+                        //TODO: navigate to the room screen and open webrtc connection
                       },
                     ),
                   ],

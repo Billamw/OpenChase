@@ -6,7 +6,7 @@ void main() {
 }
 
 class OpenChaseApp extends StatelessWidget {
-  const OpenChaseApp({Key? key}) : super(key: key);
+  const OpenChaseApp({super.key});
 
   @override
   Widget build(BuildContext context) {
