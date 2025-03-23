@@ -1,54 +1,48 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:nostr/nostr.dart';
+import 'package:openchase/utils/caesar_cipher.dart';
+import 'package:openchase/utils/open_chase_key.dart';
 
-Keychain keys = Keychain.generate();
-String subId = generate64RandomHexChars();
 final String nostrRelay = 'wss://relay.damus.io';
-int createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+Keychain key = Keychain.generate();
+String roomCode = "ABCD";
+int since = currentUnixTimestampSeconds();
 
 Future<void> sendNostr() async {
+  print("🔑 Public Key: ${key.public}");
+  print("🔑 Private Key: ${key.private}");
+  var jsonString = json.encode({
+    "private": CaesarCipher.encrypt(key.private, roomCode),
+    "public": CaesarCipher.encrypt(key.public, roomCode),
+    "content": "Hello, World!",
+  });
   Event testEvent = Event.from(
     kind: 1,
-    tags: [],
-    content: "Hallo Schnucki!",
-    privkey: keys.private,
+    content: jsonString,
+    privkey: OpenChaseKey.private,
     verify: true,
   );
-  // print("Serialized Event: ${anotherEvent.serialize()}");
 
   // Connecting to a nostr relay using websocket
   WebSocket webSocket = await WebSocket.connect(nostrRelay);
-  // if the current socket fail try another one
-  // wss://nostr.sandwich.farm
-  // wss://relay.damus.io
 
   // Send an event to the WebSocket server
   webSocket.add(testEvent.serialize());
 
   // Listen for events from the WebSocket server
   await Future.delayed(Duration(seconds: 1));
-  webSocket.listen(
-    (event) {
-      print('Event status: $event');
-    },
-    onError: (error) {
-      print('Error: $error');
-    },
-    onDone: () {
-      print('WebSocket is closed');
-    },
-  );
-
-  print(keys.public);
+  webSocket.listen((event) {
+    print('Event status: $event');
+  });
 
   // Close the WebSocket connection
   await webSocket.close();
 }
 
 Future<void> requestMessage() async {
-  Request requestWithFilter = Request(subId, [
-    Filter(authors: [keys.public], limit: 5),
+  Request requestWithFilter = Request(generate64RandomHexChars(), [
+    Filter(authors: [OpenChaseKey.public]),
   ]);
 
   WebSocket webSocket = await WebSocket.connect(nostrRelay);
@@ -67,11 +61,22 @@ Future<void> requestMessage() async {
           decodedMessage[0] == "EVENT") {
         var eventData = decodedMessage[2]; // The actual event object
 
-        String pubkey = eventData["pubkey"];
         String content = eventData["content"];
-        int createdAt = eventData["created_at"];
 
-        print("📩 New message from $pubkey at $createdAt: $content");
+        try {
+          var jsonData = json.decode(content);
+          JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+          String prettyprint = encoder.convert(jsonData);
+          print(prettyprint);
+          var publicKey = CaesarCipher.decrypt(jsonData["public"], roomCode);
+          var privateKey = CaesarCipher.decrypt(jsonData["private"], roomCode);
+          print("Public Key: $publicKey");
+          print("Private Key: $privateKey");
+        } catch (e) {
+          print("⚠️ Error decoding message: $e");
+        }
+
+        // print("📩 New message from $pubkey at $createdAt: $content");
       }
     } catch (e) {
       print("⚠️ Error decoding message: $e");

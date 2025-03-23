@@ -1,5 +1,5 @@
 name: openchase
-description: "A new Flutter project."
+description: "A hide and seek game with a twist!"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
@@ -31,6 +31,8 @@ dependencies:
     flutter:
         sdk: flutter
     nostr: ^1.5.0
+    uni_links: ^0.5.0
+    url_launcher: ^6.3.1
 
     # The following adds the Cupertino Icons font to your application.
     # Use with the CupertinoIcons class for iOS style icons.
