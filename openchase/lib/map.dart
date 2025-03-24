@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:openchase/utils/player.dart';
 
 class MapScreen extends StatefulWidget {
@@ -170,6 +171,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 TileLayer(
                   urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                   subdomains: ['a', 'b', 'c'],
+                  tileProvider: CancellableNetworkTileProvider(),
                 ),
                 // Polyline für jeden Spieler
                 ...widget.players.map((player) {
@@ -218,16 +220,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                   ],
                                 ),
                                 child: Text(
-  player.name,
-  maxLines: 1, // Verhindert Umbruch
-  overflow: TextOverflow.ellipsis, // Schneidet mit "..." ab
-  style: TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.bold,
-    color: Colors.black,
-  ),
-),
-
+                                  player.name,
+                                  maxLines: 1, // Verhindert Umbruch
+                                  overflow:
+                                      TextOverflow
+                                          .ellipsis, // Schneidet mit "..." ab
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
                               ),
                               SizedBox(
                                 height: 5,
