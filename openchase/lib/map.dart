@@ -28,7 +28,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _mapController = MapController();
-    _user = widget.players[0]; // Setze den eigenen Benutzer (z.B. Spieler 3)
+    _user = widget.players[1]; // Setze den eigenen Benutzer (z.B. Spieler 1)
 
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android) {
@@ -71,6 +71,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // Aktuellen Standort abrufen
   Future<void> _getCurrentLocation() async {
+    _user = widget.players[1];
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android) {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -170,47 +171,47 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                   subdomains: ['a', 'b', 'c'],
                 ),
-                // Polyline wird nur gezeichnet, wenn mindestens 2 Punkte vorhanden sind
-                if (_user.positionHistory.length > 1)
-                  PolylineLayer(
+                // Polyline für jeden Spieler
+                ...widget.players.map((player) {
+                  return PolylineLayer(
                     polylines: [
-                      Polyline(
-                        points: _user.positionHistory,
-                        strokeWidth: 5.0,
-                        color: Colors.blue,
-                      ),
+                      if (player.positionHistory.length > 1)
+                        Polyline(
+                          points: player.positionHistory,
+                          strokeWidth: 5.0,
+                          color: player.color, // Farbe des Spielers
+                        ),
                     ],
-                  ),
+                  );
+                }).toList(),
                 // MarkerLayer für alle Spieler
                 MarkerLayer(
-                  markers:
-                      widget.players.map((player) {
-                        return Marker(
-                          point: player.currentPosition,
-                          width: 50,
-                          height: 50,
-                          alignment: Alignment(0, -1),
-                          rotate: true,
-                          child: GestureDetector(
-                            onTap: () {
-                              // Wenn der Marker angetippt wird, bewege die Karte zu dieser Position
-                              _animatedMapMove(player.currentPosition, 17.0);
-                            },
-                            child:
-                                player.isMrX
-                                    ? Image.asset(
-                                      'images/mrx.png', // Bild für MrX
-                                      width: 50,
-                                      height: 50,
-                                    )
-                                    : Icon(
-                                      Icons.location_on_rounded,
-                                      color: player.color, // Farbe des Spielers
-                                      size: 50,
-                                    ),
-                          ),
-                        );
-                      }).toList(),
+                  markers: widget.players.map((player) {
+                    return Marker(
+                      point: player.currentPosition,
+                      width: 50,
+                      height: 50,
+                      alignment: Alignment(0, -1),
+                      rotate: true,
+                      child: GestureDetector(
+                        onTap: () {
+                          // Wenn der Marker angetippt wird, bewege die Karte zu dieser Position
+                          _animatedMapMove(player.currentPosition, 17.0);
+                        },
+                        child: player.isMrX
+                            ? Image.asset(
+                                'images/mrx.png', // Bild für MrX
+                                width: 50,
+                                height: 50,
+                              )
+                            : Icon(
+                                Icons.location_on_rounded,
+                                color: player.color, // Farbe des Spielers
+                                size: 50,
+                              ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
             ),
@@ -222,19 +223,18 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-  onPressed: () {
-    setState(() {
-      _followUser = true; // Setze followUser auf true
-    });
-    _animatedMapMove(
-      _currentPosition,
-      null,
-    ); // Bewege die Karte zur aktuellen Position
-    _rotateMapBackToNorth();
-  },
-  child: Icon(Icons.my_location),
-),
-
+            onPressed: () {
+              setState(() {
+                _followUser = true; // Setze followUser auf true
+              });
+              _animatedMapMove(
+                _currentPosition,
+                null,
+              ); // Bewege die Karte zur aktuellen Position
+              _rotateMapBackToNorth();
+            },
+            child: Icon(Icons.my_location),
+          ),
         ],
       ),
     );
