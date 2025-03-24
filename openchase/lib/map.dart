@@ -186,32 +186,77 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 }).toList(),
                 // MarkerLayer für alle Spieler
                 MarkerLayer(
-                  markers: widget.players.map((player) {
-                    return Marker(
-                      point: player.currentPosition,
-                      width: 50,
-                      height: 50,
-                      alignment: Alignment(0, -1),
-                      rotate: true,
-                      child: GestureDetector(
-                        onTap: () {
-                          // Wenn der Marker angetippt wird, bewege die Karte zu dieser Position
-                          _animatedMapMove(player.currentPosition, 17.0);
-                        },
-                        child: player.isMrX
-                            ? Image.asset(
-                                'images/mrx.png', // Bild für MrX
-                                width: 50,
-                                height: 50,
-                              )
-                            : Icon(
-                                Icons.location_on_rounded,
-                                color: player.color, // Farbe des Spielers
-                                size: 50,
+                  markers:
+                      widget.players.map((player) {
+                        return Marker(
+                          point: player.currentPosition,
+                          width: 200, // Breiter für bessere Sichtbarkeit
+                          height:
+                              114, // Höhe angepasst, damit Spitze genau sitzt
+                          alignment: Alignment(
+                            0,
+                            -0.75,
+                          ), // Wichtig für korrekte Positionierung
+                          rotate: true,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 3,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+  player.name,
+  maxLines: 1, // Verhindert Umbruch
+  overflow: TextOverflow.ellipsis, // Schneidet mit "..." ab
+  style: TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+    color: Colors.black,
+  ),
+),
+
                               ),
-                      ),
-                    );
-                  }).toList(),
+                              SizedBox(
+                                height: 5,
+                              ), // Reduzierter Abstand für bessere Position
+                              GestureDetector(
+                                onTap: () {
+                                  _animatedMapMove(
+                                    player.currentPosition,
+                                    17.0,
+                                  );
+                                },
+                                child:
+                                    player.isMrX
+                                        ? Image.asset(
+                                          'images/mrx.png',
+                                          width: 75,
+                                          height: 68,
+                                        )
+                                        : Icon(
+                                          Icons.location_on_rounded,
+                                          color: player.color,
+                                          size:
+                                              75, // Etwas größer für perfekte Position
+                                        ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                 ),
               ],
             ),
