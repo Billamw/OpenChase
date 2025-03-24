@@ -1,9 +1,7 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:openchase/utils/nostr_helper.dart';
-import 'package:openchase/utils/open_chase_key.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class InviteRoomScreen extends StatefulWidget {
@@ -24,7 +22,8 @@ class InviteRoomScreen extends StatefulWidget {
 
 class _InviteRoomScreenState extends State<InviteRoomScreen> {
   String _generatedCode = '';
-  WebSocket? _webSocket;
+  // ignore: prefer_final_fields
+  List<String> _receivedMessages = [];
 
   void _generateRandomCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -37,10 +36,20 @@ class _InviteRoomScreenState extends State<InviteRoomScreen> {
     super.initState();
     _generateRandomCode();
     NostrHelper.connect(); // ✅ Open WebSocket when screen loads
-    NostrHelper.sendNostr(
+    NostrHelper.sendInitialNostr(
       widget.playerName,
       _generatedCode,
     ); // ✅ Send room creation event
+    listen(); // ✅ Listen for incoming messages
+  }
+
+  void listen() async {
+    await NostrHelper.listenForMessages(_generatedCode, (message) {
+      dev.log("Received message: $message");
+      setState(() {
+        _receivedMessages.add(message); // Add new message to list
+      });
+    });
   }
 
   @override
@@ -84,6 +93,16 @@ class _InviteRoomScreenState extends State<InviteRoomScreen> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
+
+            // ✅ Display received messages
+            Expanded(
+              child: ListView.builder(
+                itemCount: _receivedMessages.length,
+                itemBuilder: (context, index) {
+                  return ListTile(title: Text(_receivedMessages[index]));
+                },
+              ),
+            ),
 
             // Invite link display
             SelectableText(
