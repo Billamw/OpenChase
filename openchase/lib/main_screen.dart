@@ -3,9 +3,19 @@ import 'package:openchase/join_room_screen.dart';
 import 'package:openchase/setup_room_screen.dart';
 import 'package:openchase/map.dart';
 import 'package:openchase/utils/ui_helper.dart';
+import 'package:openchase/utils/player.dart';
+import 'package:latlong2/latlong.dart';
 
 class MainScreen extends StatelessWidget {
-  const MainScreen({super.key});
+  MainScreen({super.key});
+
+  // Für Testzwecke:
+  List<Player> players = [
+    Player(name: "Mr. X", isMrX: true, color: Colors.black, positionHistory: [], currentPosition: LatLng(48.1351, 11.5820)),
+    Player(name: "Detektiv 1", isMrX: false, color: Colors.blue, positionHistory: [], currentPosition: LatLng(48.1361, 11.5830)),
+    Player(name: "Detektiv 2", isMrX: false, color: Colors.green, positionHistory: [], currentPosition: LatLng(48.1371, 11.5840)),
+    Player(name: "Detektiv 3", isMrX: false, color: Colors.orange, positionHistory: [], currentPosition: LatLng(48.1381, 11.5850)),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -14,12 +24,12 @@ class MainScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
-          // Logo at the top
+          // Logo oben
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Image.asset(logoPath, width: 200),
           ),
-          // Create Room, Join Room, and Map buttons
+          // Buttons: Create Room, Join Room, Map
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -58,7 +68,9 @@ class MainScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => MapScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => MapScreen(players: players),
+                        ),
                       );
                     },
                     child: const Text('Map'),
@@ -67,8 +79,7 @@ class MainScreen extends StatelessWidget {
               ],
             ),
           ),
-
-          // Settings icon at the bottom
+          // Settings-Symbol unten rechts
           Align(
             alignment: Alignment.bottomRight,
             child: Padding(
@@ -76,7 +87,7 @@ class MainScreen extends StatelessWidget {
               child: IconButton(
                 iconSize: 32,
                 onPressed: () {
-                  // Handle settings button press
+                  // Settings-Button-Press-Logik
                 },
                 icon: const Icon(Icons.settings),
               ),

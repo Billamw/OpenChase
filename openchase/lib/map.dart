@@ -4,14 +4,22 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:openchase/utils/player.dart';
 
 class MapScreen extends StatefulWidget {
+  final List<Player> players; // Liste der Spieler wird übergeben
+
+  // Konstruktor, um die Liste der Spieler zu erhalten
+  MapScreen({required this.players});
+
   @override
   _MapScreenState createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late final MapController _mapController;
+  late Player _user; // Der eigene Benutzer
   LatLng _currentPosition = LatLng(48.1351, 11.5820); // Standard: München
   bool _loading = true;
   bool _followUser = true;
@@ -21,15 +29,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _mapController = MapController();
+    _user = widget.players[1]; // Setze den eigenen Benutzer (z.B. Spieler 1)
 
-    if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android) {
       _checkLocationPermission();
     } else {
       _setDefaultLocation();
     }
 
-    // Timer starten, um alle 1 Sekunde den Standort zu aktualisieren
-    _locationUpdateTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+    // Timer starten, um alle 3 Sekunden den Standort zu aktualisieren
+    _locationUpdateTimer = Timer.periodic(Duration(seconds: 3), (timer) {
       _getCurrentLocation();
     });
   }
@@ -46,9 +56,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // Standortberechtigung prüfen
   Future<void> _checkLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Standortberechtigung wurde abgelehnt.')),
         );
@@ -60,11 +72,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // Aktuellen Standort abrufen
   Future<void> _getCurrentLocation() async {
-    if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android) {
+    _user = widget.players[1];
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android) {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Standortdienste sind deaktiviert. Bitte aktivieren Sie sie in den Einstellungen.')),
+          SnackBar(
+            content: Text(
+              'Standortdienste sind deaktiviert. Bitte aktivieren Sie sie in den Einstellungen.',
+            ),
+          ),
         );
         return;
       }
@@ -72,8 +90,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       Position position = await Geolocator.getCurrentPosition();
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
+        _user.currentPosition = _currentPosition;
+        _user.positionHistory.add(_currentPosition); // Position speichern
         _loading = false;
       });
+
       if (_followUser) {
         _animatedMapMove(_currentPosition, null);
       }
@@ -85,47 +106,45 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // Animierte Bewegung der Karte
   void _animatedMapMove(LatLng destLocation, double? destZoom) {
     final camera = _mapController.camera;
-    
-    // Position Tween
-    final latTween = Tween<double>(begin: camera.center.latitude, end: destLocation.latitude);
-    final lngTween = Tween<double>(begin: camera.center.longitude, end: destLocation.longitude);
 
-    // Wenn destZoom null ist, wird der Zoom nicht verändert
-    final zoomTween = destZoom != null 
-        ? Tween<double>(begin: camera.zoom, end: destZoom) 
-        : Tween<double>(begin: camera.zoom, end: camera.zoom);
+    final latTween = Tween<double>(
+      begin: camera.center.latitude,
+      end: destLocation.latitude,
+    );
+    final lngTween = Tween<double>(
+      begin: camera.center.longitude,
+      end: destLocation.longitude,
+    );
 
-    final controller = AnimationController(duration: Duration(milliseconds: 500), vsync: this);
-    final animation = CurvedAnimation(parent: controller, curve: Curves.easeInOut);
+    final zoomTween =
+        destZoom != null
+            ? Tween<double>(begin: camera.zoom, end: destZoom)
+            : Tween<double>(begin: camera.zoom, end: camera.zoom);
+
+    final controller = AnimationController(
+      duration: Duration(milliseconds: 500),
+      vsync: this,
+    );
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeInOut,
+    );
 
     controller.addListener(() {
       _mapController.move(
         LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
-        zoomTween.evaluate(animation),  // Nur anpassen, wenn destZoom nicht null ist
+        zoomTween.evaluate(animation),
       );
     });
 
     controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
+      if (status == AnimationStatus.completed ||
+          status == AnimationStatus.dismissed) {
         controller.dispose();
       }
     });
 
     controller.forward();
-  }
-
-  
-
-// Map rotation animation to North
-void _rotateMapBackToNorth() {
-  _mapController.rotate(0);
-}
-
-  @override
-  void dispose() {
-    _locationUpdateTimer.cancel();  // Timer stoppen
-    _mapController.dispose();
-    super.dispose();
   }
 
   @override
@@ -136,7 +155,6 @@ void _rotateMapBackToNorth() {
         children: [
           Listener(
             onPointerDown: (event) {
-              // Hier setzen wir _followUser auf false, wenn auf die Karte getippt wird.
               setState(() {
                 _followUser = false;
               });
@@ -153,18 +171,95 @@ void _rotateMapBackToNorth() {
                 TileLayer(
                   urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                   subdomains: ['a', 'b', 'c'],
+                  tileProvider: CancellableNetworkTileProvider(),
                 ),
+                // Polyline für jeden Spieler
+                ...widget.players.map((player) {
+                  return PolylineLayer(
+                    polylines: [
+                      if (player.positionHistory.length > 1)
+                        Polyline(
+                          points: player.positionHistory,
+                          strokeWidth: 5.0,
+                          color: player.color, // Farbe des Spielers
+                        ),
+                    ],
+                  );
+                }).toList(),
+                // MarkerLayer für alle Spieler
                 MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _currentPosition,
-                      width: 100,
-                      height: 100,
-                      alignment: Alignment(0, -1),
-                      rotate: true,
-                      child: Image.asset('images/mrx.png', width: 100, height: 100),
-                    ),
-                  ],
+                  markers:
+                      widget.players.map((player) {
+                        return Marker(
+                          point: player.currentPosition,
+                          width: 200, // Breiter für bessere Sichtbarkeit
+                          height:
+                              114, // Höhe angepasst, damit Spitze genau sitzt
+                          alignment: Alignment(
+                            0,
+                            -0.75,
+                          ), // Wichtig für korrekte Positionierung
+                          rotate: true,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 3,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  player.name,
+                                  maxLines: 1, // Verhindert Umbruch
+                                  overflow:
+                                      TextOverflow
+                                          .ellipsis, // Schneidet mit "..." ab
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                height: 5,
+                              ), // Reduzierter Abstand für bessere Position
+                              GestureDetector(
+                                onTap: () {
+                                  _animatedMapMove(
+                                    player.currentPosition,
+                                    17.0,
+                                  );
+                                },
+                                child:
+                                    player.isMrX
+                                        ? Image.asset(
+                                          'images/mrx.png',
+                                          width: 75,
+                                          height: 68,
+                                        )
+                                        : Icon(
+                                          Icons.location_on_rounded,
+                                          color: player.color,
+                                          size:
+                                              75, // Etwas größer für perfekte Position
+                                        ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                 ),
               ],
             ),
@@ -176,17 +271,25 @@ void _rotateMapBackToNorth() {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-            onPressed: _loading ? null : () {
+            onPressed: () {
               setState(() {
-                _followUser = true;  // Setze followUser auf true
+                _followUser = true; // Setze followUser auf true
               });
-              _animatedMapMove(_currentPosition, null);  // Bewege die Karte zur aktuellen Position
+              _animatedMapMove(
+                _currentPosition,
+                null,
+              ); // Bewege die Karte zur aktuellen Position
               _rotateMapBackToNorth();
             },
             child: Icon(Icons.my_location),
-          )
+          ),
         ],
       ),
     );
+  }
+
+  // Map rotation animation to North
+  void _rotateMapBackToNorth() {
+    _mapController.rotate(0);
   }
 }

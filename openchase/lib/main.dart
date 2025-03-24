@@ -15,7 +15,7 @@ class OpenChaseApp extends StatelessWidget {
       theme: ThemeData(
         // Your theme configuration
       ),
-      home: const MainScreen(),
+      home: MainScreen(),
     );
   }
 }
