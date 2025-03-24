@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:openchase/utils/nostr_helper.dart';
 import 'package:openchase/utils/ui_helper.dart';
@@ -23,6 +25,12 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    NostrHelper.closeWebSocket(); // ✅ Close WebSocket when screen is closed
+    super.dispose();
+  }
+
   Future<void> _joinRoom(BuildContext context) async {
     // Clear previous errors
     _clearErrors();
@@ -30,17 +38,14 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     final name = _nameController.text.trim();
     final code = _codeController.text.trim().toUpperCase();
 
+    // Request message from Nostr
+    print("Requesting message for $code");
+    Map hostData = await NostrHelper.requestInitialMessage(code);
+
     if (name.isEmpty) {
       setState(() => _nameError = "Name can't be empty");
       return;
     }
-
-    // Connect to WebSocket
-    await NostrHelper.connect();
-
-    // Request message from Nostr
-    print("Requesting message for $code");
-    await NostrHelper.requestMessage(code);
 
     // Show loading indicator
     showDialog(
@@ -65,40 +70,48 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     // Close loading indicator
     Navigator.of(context).pop();
 
-    // Check if room exists (you'll need to implement this logic in NostrHelper)
-    bool hasHost = await NostrHelper.doesRoomExist(code);
-
-    if (hasHost) {
-      await _showJoinConfirmationDialog(context, name, code);
+    if (hostData["exists"]) {
+      print("Public Key: ${hostData['public']}");
+      await _showJoinConfirmationDialog(context, hostData, code);
     } else {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Room not found")));
     }
+    NostrHelper.closeWebSocket();
   }
 
   Future<bool?> _showJoinConfirmationDialog(
     BuildContext context,
-    String name,
+    Map hostdata,
     String code,
   ) async {
+    String hostName = hostdata["host"];
+    String privateKey = hostdata["private"];
     return showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
             title: Text("Join $code?"),
-            content: Text("Are you sure you want to join ${name}'s room?"),
+            content: Text("Are you sure you want to join $hostName's room?"),
             actions: [
               TextButton(
                 child: Text("Cancel"),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  Navigator.pop(context);
+                  NostrHelper.closeWebSocket();
+                },
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(foregroundColor: Colors.green),
                 child: Text("Join"),
                 onPressed: () async {
-                  await NostrHelper.sendNostr(name, code);
-                  print("$name joined $code successfully");
+                  await NostrHelper.sendNostr(
+                    privateKey,
+                    _nameController.text.trim(),
+                  );
+                  log("$hostName joined $code successfully");
+                  NostrHelper.closeWebSocket(); // ✅ Close WebSocket after joining
                   Navigator.pop(context);
                   Navigator.pop(context); // Close join screen
                 },
