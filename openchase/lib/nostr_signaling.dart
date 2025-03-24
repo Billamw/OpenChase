@@ -65,7 +65,7 @@ Future<void> requestMessage() async {
 
         try {
           var jsonData = json.decode(content);
-          JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+          JsonEncoder encoder = JsonEncoder.withIndent('  ');
           String prettyprint = encoder.convert(jsonData);
           print(prettyprint);
           var publicKey = CaesarCipher.decrypt(jsonData["public"], roomCode);
