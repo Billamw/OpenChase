@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:openchase/create_room_screen.dart';
+import 'package:openchase/map.dart'; // Importiere die Map-Seite
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -20,7 +21,7 @@ class MainScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20.0),
             child: Image.asset(logoPath, width: 200),
           ),
-          // Create Room and Join Room buttons
+          // Create Room, Join Room, and Map buttons
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -46,6 +47,20 @@ class MainScreen extends StatelessWidget {
                       // Handle join room button press
                     },
                     child: const Text('Join Room'),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MapScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('Map'),
                   ),
                 ),
               ],
