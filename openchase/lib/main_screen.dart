@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:openchase/create_room_screen.dart';
-import 'package:openchase/map.dart'; // Importiere die Map-Seite
+import 'package:openchase/invite_room_screen.dart';
+import 'package:openchase/setup_room_screen.dart';
+import 'package:openchase/map.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
@@ -33,7 +34,7 @@ class MainScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => CreateRoomScreen(),
+                          builder: (context) => SetupRoomScreen(),
                         ),
                       );
                     },
@@ -55,9 +56,7 @@ class MainScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => MapScreen(),
-                        ),
+                        MaterialPageRoute(builder: (context) => MapScreen()),
                       );
                     },
                     child: const Text('Map'),
