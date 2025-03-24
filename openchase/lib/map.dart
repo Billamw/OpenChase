@@ -29,7 +29,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _mapController = MapController();
-    _user = widget.players[1]; // Setze den eigenen Benutzer (z.B. Spieler 1)
+    _user = widget.players[0];
 
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android) {
@@ -72,11 +72,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // Aktuellen Standort abrufen
   Future<void> _getCurrentLocation() async {
-    _user = widget.players[1];
-    if (defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.android) {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
+  _user = widget.players[1];
+  if (defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.android) {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -84,24 +85,31 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ),
           ),
         );
-        return;
       }
+      return;
+    }
 
+    try {
       Position position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = LatLng(position.latitude, position.longitude);
-        _user.currentPosition = _currentPosition;
-        _user.positionHistory.add(_currentPosition); // Position speichern
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+          _user.currentPosition = _currentPosition;
+          _user.positionHistory.add(_currentPosition); // Position speichern
+          _loading = false;
+        });
+      }
 
       if (_followUser) {
         _animatedMapMove(_currentPosition, null);
       }
-    } else {
-      _setDefaultLocation();
+    } catch (e) {
+      print("Fehler beim Abrufen des Standorts: $e");
     }
+  } else {
+    _setDefaultLocation();
   }
+}
 
   // Animierte Bewegung der Karte
   void _animatedMapMove(LatLng destLocation, double? destZoom) {
@@ -148,144 +156,124 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   @override
+void dispose() {
+  // Timer abbrechen, um Fehler zu vermeiden, wenn das Widget nicht mehr existiert
+  _locationUpdateTimer.cancel();
+  super.dispose();
+}
+
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Karte mit Standort')),
-      body: Stack(
-        children: [
-          Listener(
-            onPointerDown: (event) {
-              setState(() {
-                _followUser = false;
-              });
-            },
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _currentPosition,
-                initialZoom: 16,
-                maxZoom: 19.6,
-                minZoom: 4.0,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  subdomains: ['a', 'b', 'c'],
-                  tileProvider: CancellableNetworkTileProvider(),
-                ),
-                // Polyline für jeden Spieler
-                ...widget.players.map((player) {
-                  return PolylineLayer(
-                    polylines: [
-                      if (player.positionHistory.length > 1)
-                        Polyline(
-                          points: player.positionHistory,
-                          strokeWidth: 5.0,
-                          color: player.color, // Farbe des Spielers
-                        ),
-                    ],
-                  );
-                }).toList(),
-                // MarkerLayer für alle Spieler
-                MarkerLayer(
-                  markers:
-                      widget.players.map((player) {
-                        return Marker(
-                          point: player.currentPosition,
-                          width: 200, // Breiter für bessere Sichtbarkeit
-                          height:
-                              114, // Höhe angepasst, damit Spitze genau sitzt
-                          alignment: Alignment(
-                            0,
-                            -0.75,
-                          ), // Wichtig für korrekte Positionierung
-                          rotate: true,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 3,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  player.name,
-                                  maxLines: 1, // Verhindert Umbruch
-                                  overflow:
-                                      TextOverflow
-                                          .ellipsis, // Schneidet mit "..." ab
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                height: 5,
-                              ), // Reduzierter Abstand für bessere Position
-                              GestureDetector(
-                                onTap: () {
-                                  _animatedMapMove(
-                                    player.currentPosition,
-                                    17.0,
-                                  );
-                                },
-                                child:
-                                    player.isMrX
-                                        ? Image.asset(
-                                          'images/mrx.png',
-                                          width: 75,
-                                          height: 68,
-                                        )
-                                        : Icon(
-                                          Icons.location_on_rounded,
-                                          color: player.color,
-                                          size:
-                                              75, // Etwas größer für perfekte Position
-                                        ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                ),
-              ],
+  appBar: AppBar(title: Text('Karte mit Standort')),
+  body: Stack(
+    children: [
+      Listener(
+        onPointerDown: (event) {
+          setState(() {
+            _followUser = false;
+          });
+        },
+        child: FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: _currentPosition,
+            initialZoom: 16,
+            maxZoom: 19.6,
+            minZoom: 4.0,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+              tileProvider: CancellableNetworkTileProvider(),
             ),
-          ),
-          if (_loading) Center(child: CircularProgressIndicator()),
-        ],
+            // Polyline für Spieler
+            ...widget.players.map((player) {
+              return PolylineLayer(
+                polylines: [
+                  if (player.positionHistory.length > 1)
+                    Polyline(
+                      points: player.positionHistory,
+                      strokeWidth: 5.0,
+                      color: player.color,
+                    ),
+                ],
+              );
+            }).toList(),
+            // Marker für Spieler
+            MarkerLayer(
+              markers: widget.players.map((player) {
+                return Marker(
+                  point: player.currentPosition,
+                  width: 200,
+                  height: 114,
+                  alignment: Alignment(0, -0.75),
+                  rotate: true,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
+                        ),
+                        child: Text(
+                          player.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                        ),
+                      ),
+                      SizedBox(height: 5),
+                      GestureDetector(
+                        onTap: () {
+                          _animatedMapMove(player.currentPosition, 17.0);
+                        },
+                        child: player.isMrX
+                            ? Image.asset('images/mrx.png', width: 75, height: 68)
+                            : Icon(Icons.location_on_rounded, color: player.color, size: 75),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
+      if (_loading) Center(child: CircularProgressIndicator()),
+    ],
+  ),
+  floatingActionButton: FloatingActionButton(
+    onPressed: () {
+      setState(() {
+        _followUser = true;
+      });
+      _animatedMapMove(_currentPosition, null);
+      _rotateMapBackToNorth();
+    },
+    child: Icon(Icons.my_location),
+  ),
+  bottomNavigationBar: BottomAppBar(
+    color: Colors.blueGrey[900],
+    shape: CircularNotchedRectangle(),
+    child: Container(
+      height: 60,
+      padding: EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          FloatingActionButton(
-            onPressed: () {
-              setState(() {
-                _followUser = true; // Setze followUser auf true
-              });
-              _animatedMapMove(
-                _currentPosition,
-                null,
-              ); // Bewege die Karte zur aktuellen Position
-              _rotateMapBackToNorth();
-            },
-            child: Icon(Icons.my_location),
-          ),
+          IconButton(icon: Icon(Icons.inventory, color: Colors.white), onPressed: () {}),
+          IconButton(icon: Icon(Icons.map, color: Colors.white), onPressed: () {}),
+          IconButton(icon: Icon(Icons.settings, color: Colors.white), onPressed: () {}),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   // Map rotation animation to North

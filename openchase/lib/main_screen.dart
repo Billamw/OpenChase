@@ -5,6 +5,7 @@ import 'package:openchase/map.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/player.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:openchase/wege.dart';
 
 class MainScreen extends StatelessWidget {
   MainScreen({super.key});
@@ -74,6 +75,20 @@ class MainScreen extends StatelessWidget {
                       );
                     },
                     child: const Text('Map'),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ItemsTest(),
+                        ),
+                      );
+                    },
+                    child: const Text('Items-Test'),
                   ),
                 ),
               ],
