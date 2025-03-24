@@ -1,20 +1,22 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+// import 'package:openchase/utils/deeplink.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CreateRoomScreen extends StatefulWidget {
   const CreateRoomScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _CreateRoomScreenState createState() => _CreateRoomScreenState();
 }
 
 class _CreateRoomScreenState extends State<CreateRoomScreen> {
-  final TextEditingController _nameController = TextEditingController();
   String _generatedCode = '';
 
   // Generate a random 4-letter code (A-Z)
   void _generateRandomCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     _generatedCode =
         List.generate(4, (_) => chars[Random().nextInt(chars.length)]).join();
   }
@@ -30,7 +32,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Room'),
+        title: const Text('Room'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -66,18 +68,25 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
 
                 const SizedBox(height: 20),
 
-                // Name input field
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Room Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a room name';
+                // Invite link display
+                SelectableText(
+                  "openchase://invite?roomId=$_generatedCode&password=${1234}",
+                  style: TextStyle(fontSize: 16, color: Colors.blue),
+                  textAlign: TextAlign.center,
+                  onTap: () async {
+                    final Uri uri = Uri.parse(
+                      "openchase://invite?roomId=$_generatedCode&password=${1234}",
+                    );
+
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not launch invite link'),
+                        ),
+                      );
                     }
-                    return null;
                   },
                 ),
 
@@ -94,18 +103,8 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
                       },
                     ),
                     ElevatedButton(
-                      child: const Text('Create Room'),
+                      child: const Text('Start'),
                       onPressed: () async {
-                        String name = _nameController.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter a room name'),
-                            ),
-                          );
-                          return;
-                        }
-
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
