@@ -12,4 +12,11 @@ class UiHelper {
   }
 
   static const double vertical = 16;
+
+  static String getLogoPath(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return brightness == Brightness.light
+        ? 'images/logo_light_1024.png'
+        : 'images/logo_dark_1024.png';
+  }
 }

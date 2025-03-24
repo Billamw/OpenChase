@@ -68,10 +68,10 @@ Future<void> requestMessage() async {
           JsonEncoder encoder = JsonEncoder.withIndent('  ');
           String prettyprint = encoder.convert(jsonData);
           print(prettyprint);
-          var publicKey = CaesarCipher.decrypt(jsonData["public"], roomCode);
-          var privateKey = CaesarCipher.decrypt(jsonData["private"], roomCode);
-          print("Public Key: $publicKey");
-          print("Private Key: $privateKey");
+          // var publicKey = CaesarCipher.decrypt(jsonData["public"], roomCode);
+          // var privateKey = CaesarCipher.decrypt(jsonData["private"], roomCode);
+          // print("Public Key: $publicKey");
+          // print("Private Key: $privateKey");
         } catch (e) {
           print("⚠️ Error decoding message: $e");
         }
@@ -82,13 +82,13 @@ Future<void> requestMessage() async {
       print("⚠️ Error decoding message: $e");
     }
   });
-  await Future.delayed(Duration(seconds: 5));
-  await webSocket.close();
+  // await Future.delayed(Duration(seconds: 5));
+  // await webSocket.close();
 }
 
 void main() async {
-  print("🚀 Sending a Nostr message...");
-  await sendNostr(); // Send a test message
+  // print("🚀 Sending a Nostr message...");
+  // await sendNostr(); // Send a test message
 
   print("📡 Requesting messages...");
   await requestMessage(); // Request messages

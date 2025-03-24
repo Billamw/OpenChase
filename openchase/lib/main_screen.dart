@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:openchase/invite_room_screen.dart';
+import 'package:openchase/join_room_screen.dart';
 import 'package:openchase/setup_room_screen.dart';
 import 'package:openchase/map.dart';
+import 'package:openchase/utils/ui_helper.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final String logoPath =
-        brightness == Brightness.light
-            ? 'images/logo_light_1024.png'
-            : 'images/logo_dark_1024.png';
+    final String logoPath = UiHelper.getLogoPath(context);
 
     return Scaffold(
       body: Column(
@@ -45,7 +42,12 @@ class MainScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 16.0),
                   child: ElevatedButton(
                     onPressed: () {
-                      // Handle join room button press
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => JoinRoomScreen(),
+                        ),
+                      );
                     },
                     child: const Text('Join Room'),
                   ),

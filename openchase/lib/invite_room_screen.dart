@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:openchase/utils/nostr_helper.dart';
+import 'package:openchase/utils/open_chase_key.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class InviteRoomScreen extends StatefulWidget {
@@ -20,6 +24,7 @@ class InviteRoomScreen extends StatefulWidget {
 
 class _InviteRoomScreenState extends State<InviteRoomScreen> {
   String _generatedCode = '';
+  WebSocket? _webSocket;
 
   void _generateRandomCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -31,6 +36,17 @@ class _InviteRoomScreenState extends State<InviteRoomScreen> {
   void initState() {
     super.initState();
     _generateRandomCode();
+    NostrHelper.connect(); // ✅ Open WebSocket when screen loads
+    NostrHelper.sendNostr(
+      widget.playerName,
+      _generatedCode,
+    ); // ✅ Send room creation event
+  }
+
+  @override
+  void dispose() {
+    NostrHelper.closeWebSocket(); // ✅ Close WebSocket when screen is closed
+    super.dispose();
   }
 
   @override

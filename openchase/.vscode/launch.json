@@ -10,16 +10,22 @@
             "type": "dart"
         },
         {
-            "name": "openchase (profile mode)",
+            "name": "Pixel",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "deviceId": "3B171JEHN04625"
         },
         {
-            "name": "openchase (release mode)",
+            "name": "Windows",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "deviceId": "windows"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "All Devices",
+            "configurations": ["Pixel", "Windows"]
         }
     ]
 }
