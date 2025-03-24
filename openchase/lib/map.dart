@@ -88,7 +88,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       Position position = await Geolocator.getCurrentPosition();
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
-        _user.currentPosition=_currentPosition;
+        _user.currentPosition = _currentPosition;
         _user.positionHistory.add(_currentPosition); // Position speichern
         _loading = false;
       });
@@ -115,7 +115,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
 
     final zoomTween =
-        destZoom != null ? Tween<double>(begin: camera.zoom, end: destZoom) : Tween<double>(begin: camera.zoom, end: camera.zoom);
+        destZoom != null
+            ? Tween<double>(begin: camera.zoom, end: destZoom)
+            : Tween<double>(begin: camera.zoom, end: camera.zoom);
 
     final controller = AnimationController(
       duration: Duration(milliseconds: 500),
@@ -129,9 +131,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     controller.addListener(() {
       _mapController.move(
         LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
-        zoomTween.evaluate(
-          animation,
-        ),
+        zoomTween.evaluate(animation),
       );
     });
 
@@ -183,29 +183,34 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   ),
                 // MarkerLayer für alle Spieler
                 MarkerLayer(
-                  markers: widget.players.map((player) {
-                    return Marker(
-                      point: player.currentPosition,
-                      width: 50,
-                      height: 50,
-                      alignment: Alignment(0, -1),
-                      rotate: true,
-                      child: player.isMrX
-                          ? Image.asset(
-                              'images/mrx.png', // Bild für MrX
-                              width: 50,
-                              height: 50,
-                            )
-                          : Container(
-                              decoration: BoxDecoration(
-                                color: player.color, // Farbe des Spielers
-                                shape: BoxShape.circle,
-                              ),
-                              width: 30,
-                              height: 30,
-                            ),
-                    );
-                  }).toList(),
+                  markers:
+                      widget.players.map((player) {
+                        return Marker(
+                          point: player.currentPosition,
+                          width: 50,
+                          height: 50,
+                          alignment: Alignment(0, -1),
+                          rotate: true,
+                          child: GestureDetector(
+                            onTap: () {
+                              // Wenn der Marker angetippt wird, bewege die Karte zu dieser Position
+                              _animatedMapMove(player.currentPosition, 17.0);
+                            },
+                            child:
+                                player.isMrX
+                                    ? Image.asset(
+                                      'images/mrx.png', // Bild für MrX
+                                      width: 50,
+                                      height: 50,
+                                    )
+                                    : Icon(
+                                      Icons.location_on_rounded,
+                                      color: player.color, // Farbe des Spielers
+                                      size: 50,
+                                    ),
+                          ),
+                        );
+                      }).toList(),
                 ),
               ],
             ),
@@ -217,21 +222,19 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
-            onPressed:
-                _loading
-                    ? null
-                    : () {
-                        setState(() {
-                          _followUser = true; // Setze followUser auf true
-                        });
-                        _animatedMapMove(
-                          _currentPosition,
-                          null,
-                        ); // Bewege die Karte zur aktuellen Position
-                        _rotateMapBackToNorth();
-                      },
-            child: Icon(Icons.my_location),
-          ),
+  onPressed: () {
+    setState(() {
+      _followUser = true; // Setze followUser auf true
+    });
+    _animatedMapMove(
+      _currentPosition,
+      null,
+    ); // Bewege die Karte zur aktuellen Position
+    _rotateMapBackToNorth();
+  },
+  child: Icon(Icons.my_location),
+),
+
         ],
       ),
     );
