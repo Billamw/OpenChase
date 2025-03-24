@@ -72,7 +72,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // Aktuellen Standort abrufen
   Future<void> _getCurrentLocation() async {
-  _user = widget.players[1];
   if (defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.android) {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
