@@ -114,6 +114,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     controller.forward();
   }
 
+  
+
+// Map rotation animation to North
+void _rotateMapBackToNorth() {
+  _mapController.rotate(0);
+}
+
   @override
   void dispose() {
     _locationUpdateTimer.cancel();  // Timer stoppen
@@ -165,14 +172,24 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           if (_loading) Center(child: CircularProgressIndicator()),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _loading ? null : () {
-          setState(() {
-            _followUser = true;  // Setze followUser auf true
-          });
-          _animatedMapMove(_currentPosition, null);  // Bewege die Karte zur aktuellen Position
-        },
-        child: Icon(Icons.my_location),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _loading ? null : () {
+              setState(() {
+                _followUser = true;  // Setze followUser auf true
+              });
+              _animatedMapMove(_currentPosition, null);  // Bewege die Karte zur aktuellen Position
+            },
+            child: Icon(Icons.my_location),
+          ),
+          SizedBox(height: 16), // Space between buttons
+          FloatingActionButton(
+            onPressed: _rotateMapBackToNorth,  // Rotate the map back to North
+            child: Icon(Icons.navigation),
+          ),
+        ],
       ),
     );
   }
