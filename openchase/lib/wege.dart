@@ -30,7 +30,7 @@ class _ItemsTestState extends State<ItemsTest> {
   Future<void> _fetchWaysAndGenerateMarkers() async {
     double lat = widget.playAreaCenter.latitude;
     double lng = widget.playAreaCenter.longitude;
-    int radius = widget.playareaRadius; // 1000 Meter Umkreis
+    double radius = 0.9 * widget.playareaRadius; // 1000 Meter Umkreis
 String overpassUrl =
     "https://overpass-api.de/api/interpreter?data=[out:json];way(around:$radius,$lat,$lng)['highway'~'footway|path|pedestrian|cycleway|residential|tertiary|primary|secondary']['foot'!='no']['access'!='private'];(._;>;);out;";
 
