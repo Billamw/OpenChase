@@ -96,26 +96,10 @@ class MainScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => SetupPage(),
-                        ),
+                        MaterialPageRoute(builder: (context) => SetupPage()),
                       );
                     },
                     child: const Text('Setup-Test'),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => WebSocketMessagesPage(),
-                        ),
-                      );
-                    },
-                    child: const Text('Nostr Test'),
                   ),
                 ),
               ],

@@ -33,7 +33,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     _codeController.dispose();
     _nameFocus.dispose();
     _codeFocus.dispose();
-    NostrHelper.closeWebSocket(message: "join dispose");
+    InitialNostr.closeWebSocket(message: "join dispose");
     super.dispose();
   }
 
@@ -44,7 +44,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     final name = _nameController.text.trim();
     final code = _codeController.text.trim().toUpperCase();
 
-    Map hostData = await NostrHelper.requestInitialMessage(code);
+    Map hostData = await InitialNostr.requestInitialMessage(code);
 
     if (name.isEmpty) {
       setState(() => _nameError = "Name can't be empty");
@@ -75,13 +75,12 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     Navigator.of(context).pop();
 
     if (hostData["exists"]) {
-      log("Public Key: ${hostData['public']}");
       await _showJoinConfirmationDialog(context, hostData, code);
     } else {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Room not found")));
-      NostrHelper.closeWebSocket();
+      InitialNostr.closeWebSocket();
     }
   }
 
@@ -91,7 +90,6 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     String code,
   ) async {
     String hostName = hostdata["host"];
-    String privateKey = hostdata["private"];
     return showDialog<bool>(
       context: context,
       builder:
@@ -103,7 +101,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 child: Text("Cancel"),
                 onPressed: () {
                   Navigator.pop(context);
-                  NostrHelper.closeWebSocket(message: "Cancel join");
+                  InitialNostr.closeWebSocket(message: "Cancel join");
                 },
               ),
               ElevatedButton(
@@ -111,11 +109,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 child: Text("Join"),
                 onPressed: () {
                   log("joined pressed");
-                  NostrHelper.sendNostr(
-                    _nameController.text.trim(),
-                    hostName,
-                    _codeController.text.trim().toUpperCase(),
-                  );
+                  InitialNostr.sendJoinNostr(_nameController.text.trim());
                   Navigator.pop(context);
                   Navigator.pop(context); // Close join screen
                 },

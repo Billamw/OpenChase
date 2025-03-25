@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:nostr/nostr.dart';
-import 'package:openchase/utils/open_chase_key.dart';
+import 'package:openchase/utils/nostr_settings.dart';
 
 class ContinuousNostr {
   late WebSocketChannel _channel;
@@ -12,15 +12,10 @@ class ContinuousNostr {
 
   /// Connects to the WebSocket
   void connect() {
-    Request requestWithFilter = Request(generate64RandomHexChars(), [
-      Filter(
-        authors: [OpenChaseKey.public],
-        since: currentUnixTimestampSeconds() - 5 * 60,
-      ),
-    ]);
-
-    _channel = WebSocketChannel.connect(Uri.parse(OpenChaseKey.nostrRelay));
-    _channel.sink.add(requestWithFilter.serialize());
+    _channel = WebSocketChannel.connect(Uri.parse(NostrSettings.nostrRelay));
+    _channel.sink.add(
+      NostrSettings.getSerializedRequest(NostrSettings.roomPublicKey),
+    );
 
     _listen();
   }

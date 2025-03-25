@@ -30,14 +30,15 @@ class _InviteRoomScreenState extends State<InviteRoomScreen> {
   void initState() {
     super.initState();
     _generateRandomCode();
-    NostrHelper.connect(); // ✅ Open WebSocket when screen loads
-    NostrHelper.sendInitialNostr(widget.playerName, _generatedCode);
+    _receivedMessages.add({"name": widget.playerName});
+    InitialNostr.connect(); // ✅ Open WebSocket when screen loads
+    InitialNostr.sendInitialNostr(widget.playerName, _generatedCode);
 
     // ✅ Initialize ContinuousNostr and listen for messages
     _nostrListener = ContinuousNostr(
       onMessageReceived: (message) {
         setState(() {
-          _receivedMessages.insert(0, message);
+          _receivedMessages.add(message);
         });
       },
     );
@@ -86,13 +87,6 @@ class _InviteRoomScreenState extends State<InviteRoomScreen> {
               ),
             ),
 
-            const SizedBox(height: 20),
-
-            // Player name
-            Text(
-              "Player: ${widget.playerName}",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
             const SizedBox(height: 20),
 
             // ✅ Display received messages
