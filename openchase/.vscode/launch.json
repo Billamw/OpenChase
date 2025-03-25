@@ -20,12 +20,22 @@
             "request": "launch",
             "type": "dart",
             "deviceId": "windows"
+        },
+        {
+            "name": "Chrome",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "chrome"
         }
     ],
     "compounds": [
         {
             "name": "All Devices",
             "configurations": ["Windows", "Pixel"]
+        },
+        {
+            "name": "PC only",
+            "configurations": ["Windows", "Chrome"]
         }
     ]
 }

@@ -1,12 +1,13 @@
 import 'dart:async';
-import 'dart:developer';
-import 'dart:io';
 import 'dart:convert';
+import 'dart:developer';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:nostr/nostr.dart';
 import 'package:openchase/utils/open_chase_key.dart';
 
 class NostrHelper {
-  static WebSocket? _webSocket; // Nullable WebSocket to avoid issues
+  static WebSocketChannel?
+  _webSocket; // WebSocketChannel for Flutter compatibility
   static final StreamController<String> _messageStreamController =
       StreamController.broadcast();
   static final Keychain key = Keychain.generate();
@@ -14,7 +15,7 @@ class NostrHelper {
   static Future<void> connect() async {
     if (_webSocket != null) return; // Prevent multiple connections
     try {
-      _webSocket = await WebSocket.connect(OpenChaseKey.nostrRelay);
+      _webSocket = WebSocketChannel.connect(Uri.parse(OpenChaseKey.nostrRelay));
       log('✅ WebSocket connected to ${OpenChaseKey.nostrRelay}');
     } catch (e) {
       log('❌ Failed to connect WebSocket: $e');
@@ -27,8 +28,6 @@ class NostrHelper {
   ) async {
     if (_webSocket == null) await connect(); // Ensure connection before sending
     var jsonString = json.encode({
-      // "private": key.private,
-      // "public": key.public,
       "private": OpenChaseKey.private,
       "public": OpenChaseKey.public,
       "roomCode": roomCode,
@@ -43,12 +42,13 @@ class NostrHelper {
       verify: true,
     );
 
-    _webSocket?.add(testEvent.serialize());
+    _webSocket?.sink.add(testEvent.serialize());
   }
 
   static Future<void> sendNostr(String playerName) async {
     if (_webSocket == null) await connect(); // Ensure connection before sending
-    log("sending nostr");
+    log("📡 Sending Nostr");
+
     var jsonString = json.encode({
       "name": playerName,
       "location": [0, 0],
@@ -62,27 +62,27 @@ class NostrHelper {
       verify: true,
     );
 
-    _webSocket?.add(testEvent.serialize());
-    log("📡 Sent Nostr event ${testEvent.serialize()}");
+    _webSocket?.sink.add(testEvent.serialize());
+    log("📡 Sent Nostr event: ${testEvent.serialize()}");
+
     final completer = Completer<void>();
     StreamSubscription? sub;
+
     try {
-      sub = _webSocket?.listen((event) {
-        log('Event status: $event');
-        if (sub != null) {
-          sub.cancel();
-        }
+      sub = _webSocket?.stream.listen((event) {
+        log('📩 Event received: $event');
+        sub?.cancel();
         completer.complete();
       });
 
       await completer.future;
     } catch (e) {
-      log("⚠️ Error on listener");
+      log("⚠️ Error on listener: $e");
     }
   }
 
   static Future<void> closeWebSocket() async {
-    await _webSocket?.close();
+    await _webSocket?.sink.close();
     _webSocket = null; // Reset WebSocket after closing
     log('❌ WebSocket manually closed');
   }
@@ -92,13 +92,15 @@ class NostrHelper {
       Filter(authors: [key.public]),
     ]);
 
-    WebSocket webSocket = await WebSocket.connect(OpenChaseKey.nostrRelay);
+    WebSocketChannel webSocket = WebSocketChannel.connect(
+      Uri.parse(OpenChaseKey.nostrRelay),
+    );
 
     // Send a request message to the WebSocket server
-    webSocket.add(requestWithFilter.serialize());
+    webSocket.sink.add(requestWithFilter.serialize());
 
     // Listen for events from the WebSocket server
-    webSocket.listen((message) {
+    webSocket.stream.listen((message) {
       try {
         var decodedMessage = jsonDecode(message);
 
@@ -107,14 +109,13 @@ class NostrHelper {
             decodedMessage.isNotEmpty &&
             decodedMessage[0] == "EVENT") {
           var eventData = decodedMessage[2]; // The actual event object
-
           String content = eventData["content"];
 
           try {
             var jsonData = json.decode(content);
             JsonEncoder encoder = JsonEncoder.withIndent('  ');
-            String prettyprint = encoder.convert(jsonData);
-            print(prettyprint);
+            String prettyPrint = encoder.convert(jsonData);
+            print(prettyPrint);
           } catch (e) {
             print("⚠️ Error decoding message: $e");
           }
@@ -123,8 +124,6 @@ class NostrHelper {
         print("⚠️ Error decoding message: $e");
       }
     });
-    // await Future.delayed(Duration(seconds: 5));
-    // await webSocket.close();
   }
 
   static Future<Map<String, dynamic>> requestInitialMessage(
@@ -140,13 +139,13 @@ class NostrHelper {
       ),
     ]);
 
-    _webSocket?.add(requestWithFilter.serialize());
+    _webSocket?.sink.add(requestWithFilter.serialize());
     log("📡 Sent request for room: $roomCode");
 
     Completer<Map<String, dynamic>> completer = Completer();
     StreamSubscription? sub;
 
-    sub = _webSocket?.listen((message) {
+    sub = _webSocket?.stream.listen((message) {
       try {
         var decodedMessage = jsonDecode(message);
 
