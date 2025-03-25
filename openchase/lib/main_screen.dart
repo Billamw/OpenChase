@@ -89,20 +89,7 @@ class MainScreen extends StatelessWidget {
                     child: const Text('Join Room'),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MapScreen(players: players),
-                        ),
-                      );
-                    },
-                    child: const Text('Map'),
-                  ),
-                ),
+
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16.0),
                   child: ElevatedButton(

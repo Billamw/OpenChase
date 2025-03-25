@@ -287,7 +287,7 @@ MarkerLayer(
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => MapScreen(players: players),
+                        builder: (context) => MapScreen(players: players, playAreaCenter: widget.playAreaCenter, playareaRadius: widget.playareaRadius),
                       ),
                     );
                   },

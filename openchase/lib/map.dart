@@ -6,12 +6,17 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:openchase/utils/player.dart';
+import 'dart:math';
+
 
 class MapScreen extends StatefulWidget {
   final List<Player> players; // Liste der Spieler wird übergeben
+  final LatLng playAreaCenter;
+  final int playareaRadius;
+
 
   // Konstruktor, um die Liste der Spieler zu erhalten
-  MapScreen({required this.players});
+  MapScreen({required this.players, required this.playAreaCenter, required this.playareaRadius});
 
   @override
   _MapScreenState createState() => _MapScreenState();
@@ -20,7 +25,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late final MapController _mapController;
   late Player _user; // Der eigene Benutzer
-  LatLng _currentPosition = LatLng(48.1351, 11.5820); // Standard: München
+  LatLng _currentPosition = LatLng(0, 0);
   bool _loading = true;
   bool _followUser = true;
   late Timer _locationUpdateTimer;
@@ -30,6 +35,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     super.initState();
     _mapController = MapController();
     _user = widget.players[0];
+    _currentPosition = widget.playAreaCenter;
 
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android) {
@@ -47,7 +53,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // Methode für nicht-mobile Plattformen (z.B. Web, Desktop)
   void _setDefaultLocation() {
     setState(() {
-      _currentPosition = LatLng(51.1657, 10.4515); // Beispiel: Deutschland
+      _currentPosition = widget.playAreaCenter;
       _loading = false;
     });
     _animatedMapMove(_currentPosition, 16.0);
@@ -154,13 +160,34 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     controller.forward();
   }
 
+  List<LatLng> _generateCircle(LatLng center, double radiusInMeters) {
+    const int sides = 360; // The number of sides to simulate a circle
+    List<LatLng> circlePoints = [];
+    double lat = center.latitude;
+    double lon = center.longitude;
+
+    // Radius in degrees (approximate)
+    double radiusInDegrees = radiusInMeters / 111320;
+
+    for (int i = 0; i < sides; i++) {
+      double angle = (i * 360) / sides;
+      double angleRad = angle * pi / 180.0;
+
+      double newLat = lat + (radiusInDegrees * cos(angleRad));
+      double newLon = lon + (radiusInDegrees * sin(angleRad) / cos(lat * pi / 180.0));
+
+      circlePoints.add(LatLng(newLat, newLon));
+    }
+  circlePoints.add(circlePoints[0]); // Ersten Punkt wieder anhängen, um den Kreis zu schließen
+print("Kreise");
+    return circlePoints;
+  }
+
   @override
 void dispose() {
   // Timer abbrechen, um Fehler zu vermeiden, wenn das Widget nicht mehr existiert
   _locationUpdateTimer.cancel();
-  super.dispose();
-}
-
+  super.dispose();}// Ja das mit dem disposen funktioniert auch noch nicht richtig
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +214,15 @@ void dispose() {
               urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
               tileProvider: CancellableNetworkTileProvider(),
             ),
+                                PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: _generateCircle(widget.playAreaCenter, widget.playareaRadius.toDouble()), // Circle as Polyline
+                          strokeWidth: 8.0,
+                          color: Colors.red, // Randfarbe
+                        ),
+                      ],
+                    ),
             // Polyline für Spieler
             ...widget.players.map((player) {
               return PolylineLayer(
