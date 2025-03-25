@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:openchase/join_room_screen.dart';
 import 'package:openchase/setup_room_screen.dart';
+import 'package:openchase/nostr_test_page.dart';
 import 'package:openchase/map.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/player.dart';
@@ -12,10 +13,34 @@ class MainScreen extends StatelessWidget {
 
   // Für Testzwecke:
   List<Player> players = [
-    Player(name: "Mr. X", isMrX: true, color: Colors.black, positionHistory: [], currentPosition: LatLng(48.1351, 11.5820)),
-    Player(name: "Detektiv 1", isMrX: false, color: Colors.blue, positionHistory: [], currentPosition: LatLng(48.1361, 11.5830)),
-    Player(name: "Detektiv 2", isMrX: false, color: Colors.green, positionHistory: [], currentPosition: LatLng(48.1371, 11.5840)),
-    Player(name: "Detektiv 3", isMrX: false, color: Colors.orange, positionHistory: [], currentPosition: LatLng(48.1381, 11.5850)),
+    Player(
+      name: "Mr. X",
+      isMrX: true,
+      color: Colors.black,
+      positionHistory: [],
+      currentPosition: LatLng(48.1351, 11.5820),
+    ),
+    Player(
+      name: "Detektiv 1",
+      isMrX: false,
+      color: Colors.blue,
+      positionHistory: [],
+      currentPosition: LatLng(48.1361, 11.5830),
+    ),
+    Player(
+      name: "Detektiv 2",
+      isMrX: false,
+      color: Colors.green,
+      positionHistory: [],
+      currentPosition: LatLng(48.1371, 11.5840),
+    ),
+    Player(
+      name: "Detektiv 3",
+      isMrX: false,
+      color: Colors.orange,
+      positionHistory: [],
+      currentPosition: LatLng(48.1381, 11.5850),
+    ),
   ];
 
   @override
@@ -83,12 +108,24 @@ class MainScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => ItemsTest(),
-                        ),
+                        MaterialPageRoute(builder: (context) => ItemsTest()),
                       );
                     },
                     child: const Text('Items-Test'),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WebSocketMessagesPage(),
+                        ),
+                      );
+                    },
+                    child: const Text('Nostr Test'),
                   ),
                 ),
               ],

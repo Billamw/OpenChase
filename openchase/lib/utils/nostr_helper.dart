@@ -6,10 +6,7 @@ import 'package:nostr/nostr.dart';
 import 'package:openchase/utils/open_chase_key.dart';
 
 class NostrHelper {
-  static WebSocketChannel?
-  _webSocket; // WebSocketChannel for Flutter compatibility
-  static final StreamController<String> _messageStreamController =
-      StreamController.broadcast();
+  static WebSocketChannel? _webSocket;
   static final Keychain key = Keychain.generate();
 
   static Future<void> connect() async {
@@ -20,6 +17,12 @@ class NostrHelper {
     } catch (e) {
       log('❌ Failed to connect WebSocket: $e');
     }
+  }
+
+  static Future<void> closeWebSocket({String message = ""}) async {
+    await _webSocket?.sink.close();
+    _webSocket = null; // Reset WebSocket after closing
+    log('❌($message) WebSocket manually closed');
   }
 
   static Future<void> sendInitialNostr(
@@ -64,27 +67,6 @@ class NostrHelper {
 
     _webSocket?.sink.add(testEvent.serialize());
     log("📡 Sent Nostr event: ${testEvent.serialize()}");
-
-    final completer = Completer<void>();
-    StreamSubscription? sub;
-
-    try {
-      sub = _webSocket?.stream.listen((event) {
-        log('📩 Event received: $event');
-        sub?.cancel();
-        completer.complete();
-      });
-
-      await completer.future;
-    } catch (e) {
-      log("⚠️ Error on listener: $e");
-    }
-  }
-
-  static Future<void> closeWebSocket() async {
-    await _webSocket?.sink.close();
-    _webSocket = null; // Reset WebSocket after closing
-    log('❌ WebSocket manually closed');
   }
 
   static Future<void> listenForMessages(Function(String) message) async {
