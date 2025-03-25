@@ -27,7 +27,9 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
 
   @override
   void dispose() {
-    NostrHelper.closeWebSocket(); // ✅ Close WebSocket when screen is closed
+    NostrHelper.closeWebSocket(
+      message: "join dispose",
+    ); // ✅ Close WebSocket when screen is closed
     super.dispose();
   }
 
@@ -71,14 +73,14 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     Navigator.of(context).pop();
 
     if (hostData["exists"]) {
-      print("Public Key: ${hostData['public']}");
+      log("Public Key: ${hostData['public']}");
       await _showJoinConfirmationDialog(context, hostData, code);
     } else {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Room not found")));
+      NostrHelper.closeWebSocket();
     }
-    NostrHelper.closeWebSocket();
   }
 
   Future<bool?> _showJoinConfirmationDialog(
@@ -99,15 +101,15 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 child: Text("Cancel"),
                 onPressed: () {
                   Navigator.pop(context);
-                  NostrHelper.closeWebSocket();
+                  NostrHelper.closeWebSocket(message: "Cancel join");
                 },
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(foregroundColor: Colors.green),
                 child: Text("Join"),
-                onPressed: () async {
-                  await NostrHelper.sendNostr(_nameController.text.trim());
-                  log("$hostName joined $code successfully");
+                onPressed: () {
+                  log("joined pressed");
+                  NostrHelper.sendNostr(_nameController.text.trim());
                   Navigator.pop(context);
                   Navigator.pop(context); // Close join screen
                 },
