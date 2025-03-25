@@ -1,20 +1,14 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:openchase/utils/nostr_helper.dart';
+import 'package:flutter/services.dart';
+import 'package:openchase/utils/inistial_nostr.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/continuous_nostr.dart';
 
 class InviteRoomScreen extends StatefulWidget {
   final String playerName;
-  final int uncoverInterval;
-  final List<bool> settings;
 
-  const InviteRoomScreen({
-    super.key,
-    required this.playerName,
-    required this.uncoverInterval,
-    required this.settings,
-  });
+  const InviteRoomScreen({super.key, required this.playerName});
 
   @override
   State<InviteRoomScreen> createState() => _InviteRoomScreenState();
@@ -23,6 +17,7 @@ class InviteRoomScreen extends StatefulWidget {
 class _InviteRoomScreenState extends State<InviteRoomScreen> {
   String _generatedCode = '';
   late ContinuousNostr _nostrListener;
+  // ignore: prefer_final_fields
   List<Map<String, dynamic>> _receivedMessages = [];
 
   void _generateRandomCode() {
@@ -65,19 +60,27 @@ class _InviteRoomScreenState extends State<InviteRoomScreen> {
         child: Column(
           children: [
             // Display the generated code
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  _generatedCode,
-                  style: const TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 163, 73, 164),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: _generatedCode));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Code copied to clipboard!")),
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Center(
+                  child: Text(
+                    _generatedCode,
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromARGB(255, 163, 73, 164),
+                    ),
                   ),
                 ),
               ),

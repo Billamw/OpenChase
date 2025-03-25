@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:openchase/invite_room_screen.dart';
-import 'package:openchase/utils/advanced_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class SetupRoomScreen extends StatefulWidget {
@@ -12,9 +11,15 @@ class SetupRoomScreen extends StatefulWidget {
 
 class _SetupRoomScreenState extends State<SetupRoomScreen> {
   final TextEditingController _nameController = TextEditingController();
-  bool showAdvancedSettings = false;
-  double uncoverInterval = 3; // Default value
-  bool setting1 = false, setting2 = false, setting3 = false;
+  final FocusNode _nameFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: 300), () {
+      FocusScope.of(context).requestFocus(_nameFocusNode);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,70 +31,21 @@ class _SetupRoomScreenState extends State<SetupRoomScreen> {
           horizontal: UiHelper.getResponsiveWidth(context),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Name input field
             TextField(
+              textInputAction: TextInputAction.done,
               controller: _nameController,
+              focusNode: _nameFocusNode, // Auto-select field on load
+              onSubmitted: (value) {
+                navigateToInviteRoom();
+              },
               decoration: const InputDecoration(
                 labelText: 'Enter Your Name',
                 border: OutlineInputBorder(),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Advanced Settings Toggle
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  showAdvancedSettings = !showAdvancedSettings;
-                });
-              },
-              child: Text(
-                showAdvancedSettings
-                    ? "Hide Advanced Settings"
-                    : "Show Advanced Settings",
-              ),
-            ),
-
-            if (showAdvancedSettings) ...[
-              const SizedBox(height: 10),
-              Text("Uncover Interval: ${uncoverInterval.toInt()}"),
-              Slider(
-                value: uncoverInterval,
-                min: 1,
-                max: 5,
-                divisions: 4,
-                label: uncoverInterval.toInt().toString(),
-                onChanged: (value) {
-                  setState(() {
-                    uncoverInterval = value;
-                  });
-                },
-              ),
-              // ✅ Fix: Wrap ListView in SizedBox with a fixed height
-              SizedBox(
-                height: 200, // Adjust height as needed
-                child: ListView(
-                  children: List.generate(AdvancedSettings.settings.length, (
-                    index,
-                  ) {
-                    var setting = AdvancedSettings.settings[index];
-
-                    return CheckboxListTile(
-                      title: Text(setting.name),
-                      value: setting.value,
-                      onChanged: (bool? newValue) {
-                        setState(() {
-                          setting.value = newValue ?? false;
-                        });
-                      },
-                    );
-                  }),
-                ),
-              ),
-            ],
 
             const Spacer(),
 
@@ -105,23 +61,24 @@ class _SetupRoomScreenState extends State<SetupRoomScreen> {
                     return;
                   }
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) => InviteRoomScreen(
-                            playerName: _nameController.text.trim(),
-                            uncoverInterval: uncoverInterval.toInt(),
-                            settings: [setting1, setting2, setting3],
-                          ),
-                    ),
-                  );
+                  navigateToInviteRoom();
                 },
                 child: const Text("Next"),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void navigateToInviteRoom() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) =>
+                InviteRoomScreen(playerName: _nameController.text.trim()),
       ),
     );
   }

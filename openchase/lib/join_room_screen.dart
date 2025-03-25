@@ -1,7 +1,7 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:openchase/utils/nostr_helper.dart';
+import 'package:openchase/utils/inistial_nostr.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class JoinRoomScreen extends StatefulWidget {
@@ -14,6 +14,8 @@ class JoinRoomScreen extends StatefulWidget {
 class _JoinRoomScreenState extends State<JoinRoomScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  final FocusNode _nameFocus = FocusNode();
+  final FocusNode _codeFocus = FocusNode();
 
   String? _nameError;
   String? _codeError;
@@ -27,9 +29,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
 
   @override
   void dispose() {
-    NostrHelper.closeWebSocket(
-      message: "join dispose",
-    ); // ✅ Close WebSocket when screen is closed
+    _nameController.dispose();
+    _codeController.dispose();
+    _nameFocus.dispose();
+    _codeFocus.dispose();
+    NostrHelper.closeWebSocket(message: "join dispose");
     super.dispose();
   }
 
@@ -40,8 +44,6 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     final name = _nameController.text.trim();
     final code = _codeController.text.trim().toUpperCase();
 
-    // Request message from Nostr
-    print("Requesting message for $code");
     Map hostData = await NostrHelper.requestInitialMessage(code);
 
     if (name.isEmpty) {
@@ -109,7 +111,11 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 child: Text("Join"),
                 onPressed: () {
                   log("joined pressed");
-                  NostrHelper.sendNostr(_nameController.text.trim());
+                  NostrHelper.sendNostr(
+                    _nameController.text.trim(),
+                    hostName,
+                    _codeController.text.trim().toUpperCase(),
+                  );
                   Navigator.pop(context);
                   Navigator.pop(context); // Close join screen
                 },
@@ -133,18 +139,26 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
 
             TextField(
               controller: _nameController,
+              focusNode: _nameFocus,
               decoration: InputDecoration(
                 labelText: "Your Name",
                 errorText: _nameError,
                 border: OutlineInputBorder(),
               ),
               onChanged: (text) => setState(() {}),
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) {
+                FocusScope.of(context).requestFocus(_codeFocus);
+              },
             ),
             SizedBox(height: 16),
 
             TextField(
               maxLength: 4,
               controller: _codeController,
+              textInputAction: TextInputAction.done,
+              focusNode: _codeFocus,
+              onSubmitted: (_) => _joinRoom(context),
               decoration: InputDecoration(
                 labelText: "Room Code",
                 hintText: "XXXX",

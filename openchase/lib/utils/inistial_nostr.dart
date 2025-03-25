@@ -48,14 +48,19 @@ class NostrHelper {
     _webSocket?.sink.add(testEvent.serialize());
   }
 
-  static Future<void> sendNostr(String playerName) async {
+  static Future<void> sendNostr(
+    String playerName,
+    String host,
+    String code,
+  ) async {
     if (_webSocket == null) await connect(); // Ensure connection before sending
     log("📡 Sending Nostr");
 
     var jsonString = json.encode({
       "name": playerName,
       "location": [0, 0],
-      "host": playerName,
+      "code": code,
+      "host": host,
     });
 
     Event testEvent = Event.from(

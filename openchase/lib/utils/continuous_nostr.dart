@@ -30,7 +30,6 @@ class ContinuousNostr {
     _channel.stream.listen((message) {
       try {
         var decodedMessage = jsonDecode(message);
-        dev.log("(listen) Received message: $decodedMessage");
 
         if (decodedMessage is List &&
             decodedMessage.isNotEmpty &&
