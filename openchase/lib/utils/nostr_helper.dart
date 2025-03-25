@@ -26,12 +26,11 @@ class NostrHelper {
     String roomCode,
   ) async {
     if (_webSocket == null) await connect(); // Ensure connection before sending
-    print(
-      "(InitialNostr)🔑 Public Key: ${key.public} \n Private Key: ${key.private}",
-    );
     var jsonString = json.encode({
-      "private": key.private,
-      "public": key.public,
+      // "private": key.private,
+      // "public": key.public,
+      "private": OpenChaseKey.private,
+      "public": OpenChaseKey.public,
       "roomCode": roomCode,
       "content": "Swag",
       "host": playerName,
@@ -45,25 +44,11 @@ class NostrHelper {
     );
 
     _webSocket?.add(testEvent.serialize());
-    // final completer = Completer<void>();
-    // StreamSubscription? sub;
-    // try {
-    //   sub = _webSocket?.listen((event) {
-    //     log('Event status: $event');
-    //     if (sub != null) {
-    //       sub.cancel();
-    //     }
-    //     completer.complete();
-    //   });
-
-    //   await completer.future;
-    // } catch (e) {
-    //   log("⚠️ Error on listener");
-    // }
   }
 
-  static Future<void> sendNostr(String privateKey, String playerName) async {
+  static Future<void> sendNostr(String playerName) async {
     if (_webSocket == null) await connect(); // Ensure connection before sending
+    log("sending nostr");
     var jsonString = json.encode({
       "name": playerName,
       "location": [0, 0],
@@ -73,12 +58,27 @@ class NostrHelper {
     Event testEvent = Event.from(
       kind: 1,
       content: jsonString,
-      privkey: privateKey,
+      privkey: OpenChaseKey.private,
       verify: true,
     );
 
     _webSocket?.add(testEvent.serialize());
     log("📡 Sent Nostr event ${testEvent.serialize()}");
+    final completer = Completer<void>();
+    StreamSubscription? sub;
+    try {
+      sub = _webSocket?.listen((event) {
+        log('Event status: $event');
+        if (sub != null) {
+          sub.cancel();
+        }
+        completer.complete();
+      });
+
+      await completer.future;
+    } catch (e) {
+      log("⚠️ Error on listener");
+    }
   }
 
   static Future<void> closeWebSocket() async {
@@ -87,37 +87,44 @@ class NostrHelper {
     log('❌ WebSocket manually closed');
   }
 
-  static Future<void> listenForMessages(
-    String roomCode,
-    Function(String) onMessageReceived,
-  ) async {
-    // Request requestWithFilter = Request(generate64RandomHexChars(), [
-    //   Filter(authors: [key.public], limit: 5),
-    // ]);
-    // _webSocket?.add(requestWithFilter.serialize());
-    log("👂 Listening for messages in room: $roomCode");
-    _webSocket?.listen((message) {
-      log("📩 Received message: $message");
+  static Future<void> listenForMessages(Function(String) message) async {
+    Request requestWithFilter = Request(generate64RandomHexChars(), [
+      Filter(authors: [key.public]),
+    ]);
+
+    WebSocket webSocket = await WebSocket.connect(OpenChaseKey.nostrRelay);
+
+    // Send a request message to the WebSocket server
+    webSocket.add(requestWithFilter.serialize());
+
+    // Listen for events from the WebSocket server
+    webSocket.listen((message) {
       try {
         var decodedMessage = jsonDecode(message);
-        log("📩 Received message: $decodedMessage");
 
+        // Check if the message is an "EVENT" type
         if (decodedMessage is List &&
             decodedMessage.isNotEmpty &&
             decodedMessage[0] == "EVENT") {
           var eventData = decodedMessage[2]; // The actual event object
+
           String content = eventData["content"];
 
-          var jsonData = jsonDecode(content);
-          if (jsonData["roomCode"] == roomCode) {
-            // ✅ Only pass messages for the correct room
-            onMessageReceived(content);
+          try {
+            var jsonData = json.decode(content);
+            JsonEncoder encoder = JsonEncoder.withIndent('  ');
+            String prettyprint = encoder.convert(jsonData);
+            print(prettyprint);
+          } catch (e) {
+            print("⚠️ Error decoding message: $e");
           }
         }
       } catch (e) {
-        log("⚠️ Error filtering message: $e");
+        print("⚠️ Error decoding message: $e");
       }
     });
+    // await Future.delayed(Duration(seconds: 5));
+    // await webSocket.close();
   }
 
   static Future<Map<String, dynamic>> requestInitialMessage(

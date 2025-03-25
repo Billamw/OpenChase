@@ -43,9 +43,9 @@ class _InviteRoomScreenState extends State<InviteRoomScreen> {
     listen(); // ✅ Listen for incoming messages
   }
 
-  void listen() async {
-    await NostrHelper.listenForMessages(_generatedCode, (message) {
-      dev.log("Received message: $message");
+  Future<void> listen() async {
+    await NostrHelper.listenForMessages((message) {
+      dev.log("(listen)ceived message: $message");
       setState(() {
         _receivedMessages.add(message); // Add new message to list
       });

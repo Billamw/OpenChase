@@ -106,12 +106,8 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 style: ElevatedButton.styleFrom(foregroundColor: Colors.green),
                 child: Text("Join"),
                 onPressed: () async {
-                  await NostrHelper.sendNostr(
-                    privateKey,
-                    _nameController.text.trim(),
-                  );
+                  await NostrHelper.sendNostr(_nameController.text.trim());
                   log("$hostName joined $code successfully");
-                  NostrHelper.closeWebSocket(); // ✅ Close WebSocket after joining
                   Navigator.pop(context);
                   Navigator.pop(context); // Close join screen
                 },
