@@ -7,6 +7,7 @@ import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/player.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:openchase/wege.dart';
+import 'package:openchase/setup_map.dart';
 
 class MainScreen extends StatelessWidget {
   MainScreen({super.key});
@@ -108,10 +109,12 @@ class MainScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => ItemsTest()),
+                        MaterialPageRoute(
+                          builder: (context) => SetupMapScreen(),
+                        ),
                       );
                     },
-                    child: const Text('Items-Test'),
+                    child: const Text('Setup-Test'),
                   ),
                 ),
                 Padding(
