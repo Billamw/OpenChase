@@ -4,7 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:math';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
-import 'package:openchase/wege.dart';
+import 'package:openchase/setup_items_map.dart';
+import 'package:openchase/utils/circle_generator.dart';
 
 class SetupPage extends StatefulWidget {
   @override
@@ -87,29 +88,7 @@ class _SetupPageState extends State<SetupPage> {
     });
   }
 
-  // Method to generate a polygon that represents a circle with the given radius
-  List<LatLng> _generateCircle(LatLng center, double radiusInMeters) {
-    const int sides = 360; // The number of sides to simulate a circle
-    List<LatLng> circlePoints = [];
-    double lat = center.latitude;
-    double lon = center.longitude;
 
-    // Radius in degrees (approximate)
-    double radiusInDegrees = radiusInMeters / 111320;
-
-    for (int i = 0; i < sides; i++) {
-      double angle = (i * 360) / sides;
-      double angleRad = angle * pi / 180.0;
-
-      double newLat = lat + (radiusInDegrees * cos(angleRad));
-      double newLon =
-          lon + (radiusInDegrees * sin(angleRad) / cos(lat * pi / 180.0));
-
-      circlePoints.add(LatLng(newLat, newLon));
-    }
-
-    return circlePoints;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +162,7 @@ class _SetupPageState extends State<SetupPage> {
                           PolygonLayer(
                             polygons: [
                               Polygon(
-                                points: _generateCircle(
+                                points: CircleGenerator.generateCircle(
                                   circleLocation,
                                   radius,
                                 ), // Generate circle as a polygon

@@ -4,7 +4,7 @@ import 'package:openchase/host_setup_screen.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/player.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:openchase/setup_map.dart';
+import 'package:openchase/setup_playArea_map.dart';
 
 // ignore: must_be_immutable
 class MainScreen extends StatelessWidget {
