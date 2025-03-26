@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:openchase/map.dart';
 import 'package:openchase/utils/player.dart';
+import 'package:openchase/utils/circle_generator.dart';
 
 class ItemsTest extends StatefulWidget {
   final LatLng playAreaCenter;
@@ -138,28 +139,6 @@ String overpassUrl =
 }
 
 
-     List<LatLng> _generateCircle(LatLng center, double radiusInMeters) {
-    const int sides = 360; // The number of sides to simulate a circle
-    List<LatLng> circlePoints = [];
-    double lat = center.latitude;
-    double lon = center.longitude;
-
-    // Radius in degrees (approximate)
-    double radiusInDegrees = radiusInMeters / 111320;
-
-    for (int i = 0; i < sides; i++) {
-      double angle = (i * 360) / sides;
-      double angleRad = angle * pi / 180.0;
-
-      double newLat = lat + (radiusInDegrees * cos(angleRad));
-      double newLon = lon + (radiusInDegrees * sin(angleRad) / cos(lat * pi / 180.0));
-
-      circlePoints.add(LatLng(newLat, newLon));
-    }
-  circlePoints.add(circlePoints[0]); // Ersten Punkt wieder anhängen, um den Kreis zu schließen
-print("Kreise");
-    return circlePoints;
-  }
 
  @override
 Widget build(BuildContext context) {
@@ -195,7 +174,7 @@ Widget build(BuildContext context) {
                     PolylineLayer(
                       polylines: [
                         Polyline(
-                          points: _generateCircle(widget.playAreaCenter, widget.playareaRadius.toDouble()), // Circle as Polyline
+                          points: CircleGenerator.generateCircle(widget.playAreaCenter, widget.playareaRadius.toDouble()), // Circle as Polyline
                           strokeWidth: 8.0,
                           color: Colors.red, // Randfarbe
                         ),
