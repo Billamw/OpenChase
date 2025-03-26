@@ -18,7 +18,7 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
   String _generatedCode = '';
   late ContinuousNostr _nostrListener;
   // ignore: prefer_final_fields
-  List<Map<String, dynamic>> _receivedMessages = [];
+  List _players = [];
 
   void _generateRandomCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -30,15 +30,15 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
   void initState() {
     super.initState();
     _generateRandomCode();
-    _receivedMessages.add({"name": widget.playerName});
+    _players.add(widget.playerName);
     InitialNostr.connect(); // ✅ Open WebSocket when screen loads
-    InitialNostr.sendInitialNostr(widget.playerName, _generatedCode);
+    InitialNostr.sendInitialNostr(_players, widget.playerName, _generatedCode);
 
     // ✅ Initialize ContinuousNostr and listen for messages
     _nostrListener = ContinuousNostr(
       onMessageReceived: (message) {
         setState(() {
-          _receivedMessages.add(message);
+          _players.add(message);
         });
       },
     );
@@ -92,11 +92,9 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
             // ✅ Display received messages
             Expanded(
               child: ListView.builder(
-                itemCount: _receivedMessages.length,
+                itemCount: _players.length,
                 itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(_receivedMessages[index]["name"]),
-                  );
+                  return ListTile(title: Text(_players[index]));
                 },
               ),
             ),

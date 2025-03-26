@@ -6,7 +6,7 @@ import 'package:openchase/utils/nostr_settings.dart';
 
 class ContinuousNostr {
   static WebSocketChannel? _webSocket;
-  final Function(Map<String, dynamic>) onMessageReceived;
+  final Function(String) onMessageReceived;
 
   ContinuousNostr({required this.onMessageReceived});
 
@@ -44,7 +44,7 @@ class ContinuousNostr {
           String content = eventData["content"];
           Map<String, dynamic> jsonData = json.decode(content);
           if (jsonData.containsKey("name")) {
-            onMessageReceived(jsonData); // Send data to the UI
+            onMessageReceived(jsonData["name"]); // Send data to the UI
           }
         }
       } catch (e) {

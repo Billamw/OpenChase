@@ -95,6 +95,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
     String code,
   ) async {
     String hostName = hostdata["host"];
+    List players = hostdata["players"];
     return showDialog<bool>(
       context: context,
       builder:
@@ -116,15 +117,12 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
                   log("joined pressed");
                   NostrSettings.roomCode = code;
                   NostrSettings.roomHost = hostName;
+                  NostrSettings.players = players;
                   InitialNostr.sendJoinNostr(_nameController.text.trim());
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (context) => PlayerInvitateScreen(
-                            playerName: _nameController.text.trim(),
-                            code: code,
-                          ),
+                      builder: (context) => PlayerInvitateScreen(),
                     ),
                   );
                 },

@@ -29,7 +29,11 @@ class InitialNostr {
 
   /// Host sends the initial Nostr event with room specific keys and data
   /// Saves the room code, host name, and keys in NostrSettings for the host
-  static Future<void> sendInitialNostr(String hostName, String roomCode) async {
+  static Future<void> sendInitialNostr(
+    List players,
+    String hostName,
+    String roomCode,
+  ) async {
     if (_webSocket == null) await connect();
     NostrSettings.roomPrivateKey = key.private;
     NostrSettings.roomPublicKey = key.public;
@@ -39,6 +43,7 @@ class InitialNostr {
     var jsonString = json.encode({
       "private": key.private,
       "public": key.public,
+      "players": players,
       "roomCode": roomCode,
       "host": hostName,
     });
@@ -67,6 +72,7 @@ class InitialNostr {
     );
   }
 
+  /// player send initial request to get room keys and data
   static Future<Map<String, dynamic>> requestInitialMessage(
     String roomCode,
   ) async {
@@ -96,7 +102,9 @@ class InitialNostr {
           String hostName = jsonData["host"];
           String privateKey = jsonData["private"];
           String publicKey = jsonData["public"];
+          List players = jsonData["players"];
 
+          // stores the room keys for the player
           NostrSettings.roomPrivateKey = privateKey;
           NostrSettings.roomPublicKey = publicKey;
 
@@ -106,6 +114,7 @@ class InitialNostr {
             completer.complete({
               "exists": true,
               "host": hostName,
+              "players": players,
               "private": privateKey,
               "public": publicKey,
             });

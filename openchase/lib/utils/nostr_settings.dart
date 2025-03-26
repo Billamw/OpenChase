@@ -12,6 +12,7 @@ class NostrSettings {
   static String userName = "";
   static String roomHost = "";
   static String roomCode = "";
+  static List players = [];
 
   static String getSerializedRequest(String pubKey) {
     Request requestWithFilter = Request(generate64RandomHexChars(), [

@@ -6,14 +6,7 @@ import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/continuous_nostr.dart';
 
 class PlayerInvitateScreen extends StatefulWidget {
-  final String playerName;
-  final String code;
-
-  const PlayerInvitateScreen({
-    super.key,
-    required this.playerName,
-    required this.code,
-  });
+  const PlayerInvitateScreen({super.key});
 
   @override
   State<PlayerInvitateScreen> createState() => _PlayerInvitateScreenState();
@@ -22,21 +15,23 @@ class PlayerInvitateScreen extends StatefulWidget {
 class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
   late ContinuousNostr _nostrListener;
   // ignore: prefer_final_fields
-  List<Map<String, dynamic>> _receivedMessages = [];
+  List _players = [];
 
   @override
   void initState() {
     dev.log(
       "test nostrData ${NostrSettings.roomCode} host: ${NostrSettings.roomHost}",
+      name: "Test Settings",
     );
     super.initState();
-    _receivedMessages.add({"name": NostrSettings.roomHost});
+    _players = NostrSettings.players;
+    dev.log("players: $_players", name: "Test Players");
 
     // ✅ Initialize ContinuousNostr and listen for messages
     _nostrListener = ContinuousNostr(
       onMessageReceived: (message) {
         setState(() {
-          _receivedMessages.add(message);
+          _players.add(message);
         });
       },
     );
@@ -61,7 +56,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
             // Display the generated code
             GestureDetector(
               onTap: () {
-                Clipboard.setData(ClipboardData(text: widget.code));
+                Clipboard.setData(ClipboardData(text: NostrSettings.roomCode));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Code copied to clipboard!")),
                 );
@@ -74,7 +69,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Center(
                   child: Text(
-                    widget.code,
+                    NostrSettings.roomCode,
                     style: const TextStyle(
                       fontSize: 48,
                       fontWeight: FontWeight.bold,
@@ -90,11 +85,9 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
             // ✅ Display received messages
             Expanded(
               child: ListView.builder(
-                itemCount: _receivedMessages.length,
+                itemCount: _players.length,
                 itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(_receivedMessages[index]["name"]),
-                  );
+                  return ListTile(title: Text(_players[index]));
                 },
               ),
             ),

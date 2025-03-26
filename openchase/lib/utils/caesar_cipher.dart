@@ -7,7 +7,7 @@ class CaesarCipher {
       throw ArgumentError("Key must be exactly 4 letters long");
     }
 
-    List<String> parts = _splitIntoFour(input);
+    List parts = _splitIntoFour(input);
     List<int> shifts = _getShiftsFromKey(key);
 
     // Encrypt each part with corresponding shift value
@@ -27,7 +27,7 @@ class CaesarCipher {
       throw ArgumentError("Key must be exactly 4 letters long");
     }
 
-    List<String> parts = _splitIntoFour(input);
+    List parts = _splitIntoFour(input);
     List<int> shifts = _getShiftsFromKey(key);
 
     // Decrypt each part by reversing the shift
