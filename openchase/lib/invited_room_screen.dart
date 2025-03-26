@@ -1,8 +1,6 @@
-import 'dart:math';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:openchase/utils/inistial_nostr.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/continuous_nostr.dart';

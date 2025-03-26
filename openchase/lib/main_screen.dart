@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:openchase/join_room_screen.dart';
 import 'package:openchase/setup_room_screen.dart';
-import 'package:openchase/nostr_test_page.dart';
-import 'package:openchase/map.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/player.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:openchase/wege.dart';
 import 'package:openchase/setup_map.dart';
 
+// ignore: must_be_immutable
 class MainScreen extends StatelessWidget {
   MainScreen({super.key});
 
