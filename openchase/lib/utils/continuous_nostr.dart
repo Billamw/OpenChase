@@ -46,4 +46,20 @@ class ContinuousNostr {
   void close() {
     _channel.sink.close();
   }
+
+  Future<void> sendNostr(String playerName) async {
+    var jsonString = json.encode({
+      "name": playerName,
+      "location": [0, 0],
+    });
+
+    Event testEvent = Event.from(
+      kind: 1,
+      content: jsonString,
+      privkey: NostrSettings.roomPrivateKey,
+      verify: true,
+    );
+
+    _channel.sink.add(testEvent.serialize());
+  }
 }

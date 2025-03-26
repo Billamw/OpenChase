@@ -9,6 +9,9 @@ class NostrSettings {
 
   static String roomPublicKey = "";
   static String roomPrivateKey = "";
+  static String userName = "";
+  static String roomHost = "";
+  static String roomCode = "";
 
   static String getSerializedRequest(String pubKey) {
     Request requestWithFilter = Request(generate64RandomHexChars(), [

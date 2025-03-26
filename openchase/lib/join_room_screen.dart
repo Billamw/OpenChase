@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:openchase/invited_room_screen.dart';
 import 'package:openchase/utils/inistial_nostr.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
@@ -110,8 +111,16 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 onPressed: () {
                   log("joined pressed");
                   InitialNostr.sendJoinNostr(_nameController.text.trim());
-                  Navigator.pop(context);
-                  Navigator.pop(context); // Close join screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => InvitedRoomScreen(
+                            playerName: _nameController.text.trim(),
+                            code: code,
+                          ),
+                    ),
+                  );
                 },
               ),
             ],

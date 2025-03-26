@@ -27,18 +27,19 @@ class InitialNostr {
     log('❌($message) WebSocket manually closed');
   }
 
-  static Future<void> sendInitialNostr(
-    String playerName,
-    String roomCode,
-  ) async {
-    if (_webSocket == null) await connect(); // Ensure connection before sending
+  static Future<void> sendInitialNostr(String hostName, String roomCode) async {
+    if (_webSocket == null) await connect();
+    // Store all the necessary data own exept username (in sendJoinNostr)
     NostrSettings.roomPrivateKey = key.private;
     NostrSettings.roomPublicKey = key.public;
+    NostrSettings.roomCode = roomCode;
+    NostrSettings.roomHost = hostName;
+
     var jsonString = json.encode({
-      "private": NostrSettings.roomPrivateKey,
-      "public": NostrSettings.roomPublicKey,
+      "private": key.private,
+      "public": key.public,
       "roomCode": roomCode,
-      "host": playerName,
+      "host": hostName,
     });
 
     Event testEvent = Event.from(
@@ -52,16 +53,13 @@ class InitialNostr {
   }
 
   static Future<void> sendJoinNostr(String playerName) async {
-    if (_webSocket == null) await connect(); // Ensure connection before sending
-
+    if (_webSocket == null) await connect();
+    NostrSettings.userName = playerName; // Store the player name
     var jsonString = json.encode({
       "name": playerName,
       "location": [0, 0],
     });
-    log(
-      "Sending with private key: ${NostrSettings.roomPrivateKey}",
-      name: "Key Check",
-    );
+
     Event testEvent = Event.from(
       kind: 1,
       content: jsonString,
