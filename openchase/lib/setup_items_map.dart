@@ -4,28 +4,27 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart'; // Import für DragMarker
+import 'package:openchase/utils/circle_generator.dart';
 import 'package:openchase/map.dart';
 import 'package:openchase/utils/player.dart';
-import 'package:openchase/utils/circle_generator.dart';
 
 class ItemsTest extends StatefulWidget {
   final LatLng playAreaCenter;
   final int playareaRadius;
   final int itemCount;
 
-  
-
   ItemsTest({required this.playAreaCenter, required this.playareaRadius, this.itemCount = 6});
+
   @override
   _ItemsTestState createState() => _ItemsTestState();
 }
 
 class _ItemsTestState extends State<ItemsTest> {
   final MapController _mapController = MapController();
-  List<LatLng> _markerPositions = [];
+  List<DragMarker> _dragMarkers = [];
   bool _isLoading = true;
-  List<Player> players = [
+    List<Player> players = [
     Player(
       name: "Mr. X",
       isMrX: true,
@@ -56,20 +55,21 @@ class _ItemsTestState extends State<ItemsTest> {
     ),
   ];
 
+  // Zufällige Marker-Positionen
+  List<LatLng> _markerPositions = [];
+
   @override
   void initState() {
     super.initState();
     _fetchWaysAndGenerateMarkers();
   }
 
-  // Overpass API: Wege im Umkreis holen
   Future<void> _fetchWaysAndGenerateMarkers() async {
     double lat = widget.playAreaCenter.latitude;
     double lng = widget.playAreaCenter.longitude;
     int radius = widget.playareaRadius;
-String overpassUrl =
-    "https://overpass-api.de/api/interpreter?data=[out:json];way(around:$radius,$lat,$lng)['highway'~'footway|path|pedestrian|cycleway|residential|tertiary|primary|secondary']['foot'!='no']['access'!='private'];(._;>;);out;";
-
+    String overpassUrl =
+        "https://overpass-api.de/api/interpreter?data=[out:json];way(around:$radius,$lat,$lng)['highway'~'footway|path|pedestrian|cycleway|residential|tertiary|primary|secondary']['foot'!='no']['access'!='private'];(._;>;);out;";
 
     try {
       final response = await http.get(Uri.parse(overpassUrl));
@@ -83,7 +83,6 @@ String overpassUrl =
     }
   }
 
-  // OSM-Daten parsen
   List<LatLng> _parseWays(dynamic data) {
     Map<int, LatLng> nodes = {};
     List<LatLng> wayPoints = [];
@@ -106,160 +105,107 @@ String overpassUrl =
     return wayPoints;
   }
 
-
-
-  // Zufällige Marker auf Wegen platzieren
   void _generateRandomMarkers(List<LatLng> wayPoints) {
-  if (wayPoints.isEmpty) return;
+    if (wayPoints.isEmpty) return;
 
-  Random random = Random();
-  Set<LatLng> selectedMarkers = {};
-  final Distance distance = Distance();
+    Random random = Random();
+    Set<LatLng> selectedMarkers = {};
+    final Distance distance = Distance();
 
-  while (selectedMarkers.length < 6) {
-    int index = random.nextInt(wayPoints.length);
-    LatLng candidate = wayPoints[index];
+    while (selectedMarkers.length < widget.itemCount) {
+      int index = random.nextInt(wayPoints.length);
+      LatLng candidate = wayPoints[index];
 
-    // Berechne die Entfernung vom Zentrum des Spielbereichs
-    double distanceToCenter = distance(
-      widget.playAreaCenter,
-      candidate,
-    );
+      double distanceToCenter = distance(widget.playAreaCenter, candidate);
 
-    if (distanceToCenter <= widget.playareaRadius) {
-      print(distanceToCenter);
-      selectedMarkers.add(candidate);
+      if (distanceToCenter <= widget.playareaRadius) {
+        selectedMarkers.add(candidate);
+      }
     }
+
+    setState(() {
+      _markerPositions = selectedMarkers.toList();
+      _dragMarkers = _markerPositions.map((pos) {
+        return DragMarker(
+          key: GlobalKey<DragMarkerWidgetState>(),
+          point: pos,
+          size: Size(50, 50),  // Marker-Größe
+          offset: Offset(0, -20),
+          builder: (_, currentPosition, isDragging) {
+            // Bild anstelle eines Icons verwenden
+            return Image.asset(
+              'images/test-item.png',  // Bild für den Marker
+              width: 50,
+              height: 50,
+            );
+          },
+          scrollMapNearEdge: true,
+                  scrollNearEdgeRatio: 1.5,
+        scrollNearEdgeSpeed: 5.0,
+          onDragEnd: (details, newPosition) {
+            setState(() {
+              // Aktualisiere die Marker-Position nach dem Ziehen
+              int index = _markerPositions.indexOf(pos);
+              if (index != -1) {
+                _markerPositions[index] = newPosition;
+                print("Neue Position: $newPosition");
+              }
+            });
+          },
+        );
+      }).toList();
+      _isLoading = false;
+    });
   }
 
-  setState(() {
-    _markerPositions = selectedMarkers.toList();
-    _isLoading = false;
-  });
-}
-
-
-
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(title: Text('Items Setup')),
-    body: _isLoading
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,  // Vertikal zentrieren
-              crossAxisAlignment: CrossAxisAlignment.center, // Horizontal zentrieren
-              mainAxisSize: MainAxisSize.min, // Nur so groß wie nötig
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Items Setup')),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16), // Abstand zwischen Indikator und Text
-                Text("Placing items..."),
-              ],
-            ),
-          )
-        : Column(
-            children: [
-              Expanded(
-                child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: widget.playAreaCenter, // Koordinaten für Köln
-                    initialZoom: 16,
+                Expanded(
+                  child: FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: widget.playAreaCenter,
+                      initialZoom: 14,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                      ),
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: CircleGenerator.generateCircle(widget.playAreaCenter, widget.playareaRadius.toDouble()), // Kreis als Polyline
+                            strokeWidth: 8.0,
+                            color: Colors.red, // Randfarbe
+                          ),
+                        ],
+                      ),
+                      DragMarkers(
+                        markers: _dragMarkers, // Benutze DragMarker statt Marker
+                        alignment: Alignment.topCenter,
+                      ),
+                    ],
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                      tileProvider: CancellableNetworkTileProvider(),
-                    ),
-                    PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: CircleGenerator.generateCircle(widget.playAreaCenter, widget.playareaRadius.toDouble()), // Circle as Polyline
-                          strokeWidth: 8.0,
-                          color: Colors.red, // Randfarbe
-                        ),
-                      ],
-                    ),
-MarkerLayer(
-  markers: _markerPositions.map((pos) {
-    return Marker(
-      point: pos,  // Ursprüngliche Marker-Position
-      width: 60,
-      height: 60,
-      rotate: true,
-      alignment: Alignment.center,
-      child: Draggable(
-        feedback: Image.asset(
-          'images/test-item.png',
-          width: 60,
-          height: 60,
-        ),
-        childWhenDragging: Opacity(
-          opacity: 0.5,
-          child: Image.asset(
-            'images/test-item.png',
-            width: 60,
-            height: 60,
-          ),
-        ),
-        onDragEnd: (dragDetails) { // Ja ich weiß, hier stimmt etwas noch nicht. Das item wird immer um einen festen Pixelwert nach unten links verschoben
-          setState(() {
-            // Errechne den Offset in Bezug auf die Karte
-            final Offset screenOffset = dragDetails.offset;
-
-            // Berechne die LatLng-Position aus den Bildschirmkoordinaten
-            LatLng newLatLng = _mapController.camera.screenOffsetToLatLng(
-              screenOffset,
-            );
-
-            // Berechne die relative Verschiebung
-            LatLng currentPosition = pos;
-            double deltaLat = newLatLng.latitude - currentPosition.latitude;
-            double deltaLng = newLatLng.longitude - currentPosition.longitude;
-
-            // Berechne die endgültige neue Position
-            LatLng finalPosition = LatLng(
-              currentPosition.latitude + deltaLat,
-              currentPosition.longitude + deltaLng,
-            );
-
-            // Finde den Index des Markers und aktualisiere seine Position
-            int index = _markerPositions.indexOf(pos);
-            if (index != -1) {
-              _markerPositions[index] = finalPosition;
-              print("Neue Position: ${_markerPositions[index]}"); // Debugging
-            }
-          });
-        },
-        child: Image.asset(
-          'images/test-item.png',
-          width: 60,
-          height: 60,
-        ),
-      ),
-    );
-  }).toList(),
-),
-
-
-
-
-                  ],
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ElevatedButton(
-                  onPressed: () {
-  setState(() {
-    _isLoading = true;
-  });
-  _fetchWaysAndGenerateMarkers();
-},
-                  child: Text("Randomize item positions"),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _isLoading = true;
+                      });
+                      _fetchWaysAndGenerateMarkers();
+                    },
+                    child: Text("Randomize item positions"),
+                  ),
                 ),
-              ),
-              Padding(
+                Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: ElevatedButton(
                   onPressed: () {
@@ -272,8 +218,9 @@ MarkerLayer(
                   },
                   child: Text("Ready"),
                 ),
-              ),
-            ],
-          ),
-  );
-}}
+                ),
+              ],
+            ),
+    );
+  }
+}
