@@ -1,28 +1,39 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:nostr/nostr.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 
 class ContinuousNostr {
-  late WebSocketChannel _channel;
+  static WebSocketChannel? _webSocket;
   final Function(Map<String, dynamic>) onMessageReceived;
 
   ContinuousNostr({required this.onMessageReceived});
 
   /// Connects to the WebSocket
-  void connect() {
-    _channel = WebSocketChannel.connect(Uri.parse(NostrSettings.nostrRelay));
-    _channel.sink.add(
+  Future<void> connect() async {
+    if (_webSocket != null) return; // Prevent multiple connections
+    try {
+      _webSocket = WebSocketChannel.connect(
+        Uri.parse(NostrSettings.nostrRelay),
+      );
+      dev.log('✅ WebSocket connected to ${NostrSettings.nostrRelay}');
+      _sendInitialRequest();
+      _listen();
+    } catch (e) {
+      dev.log('❌ Failed to connect WebSocket: $e');
+    }
+  }
+
+  void _sendInitialRequest() {
+    _webSocket?.sink.add(
       NostrSettings.getSerializedRequest(NostrSettings.roomPublicKey),
     );
-
-    _listen();
   }
 
   /// Listens for incoming messages
   void _listen() {
-    _channel.stream.listen((message) {
+    _webSocket?.stream.listen((message) {
       try {
         var decodedMessage = jsonDecode(message);
 
@@ -43,23 +54,24 @@ class ContinuousNostr {
   }
 
   /// Closes the WebSocket connection
-  void close() {
-    _channel.sink.close();
+  Future<void> close({String message = ""}) async {
+    await _webSocket?.sink.close();
+    _webSocket = null; // Reset WebSocket after closing
+    dev.log('❌($message) WebSocket manually closed');
   }
 
   Future<void> sendNostr(String playerName) async {
+    if (_webSocket == null) await connect();
     var jsonString = json.encode({
       "name": playerName,
       "location": [0, 0],
     });
 
-    Event testEvent = Event.from(
-      kind: 1,
-      content: jsonString,
-      privkey: NostrSettings.roomPrivateKey,
-      verify: true,
+    _webSocket?.sink.add(
+      NostrSettings.getSerializedEvent(
+        jsonString,
+        NostrSettings.roomPrivateKey,
+      ),
     );
-
-    _channel.sink.add(testEvent.serialize());
   }
 }

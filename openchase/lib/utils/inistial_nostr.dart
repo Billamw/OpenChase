@@ -27,9 +27,10 @@ class InitialNostr {
     log('❌($message) WebSocket manually closed');
   }
 
+  /// Host sends the initial Nostr event with room specific keys and data
+  /// Saves the room code, host name, and keys in NostrSettings for the host
   static Future<void> sendInitialNostr(String hostName, String roomCode) async {
     if (_webSocket == null) await connect();
-    // Store all the necessary data own exept username (in sendJoinNostr)
     NostrSettings.roomPrivateKey = key.private;
     NostrSettings.roomPublicKey = key.public;
     NostrSettings.roomCode = roomCode;
@@ -42,14 +43,12 @@ class InitialNostr {
       "host": hostName,
     });
 
-    Event testEvent = Event.from(
-      kind: 1,
-      content: jsonString,
-      privkey: NostrSettings.initialPrivateKey,
-      verify: true,
+    _webSocket?.sink.add(
+      NostrSettings.getSerializedEvent(
+        jsonString,
+        NostrSettings.initialPrivateKey,
+      ),
     );
-
-    _webSocket?.sink.add(testEvent.serialize());
   }
 
   static Future<void> sendJoinNostr(String playerName) async {
@@ -60,15 +59,12 @@ class InitialNostr {
       "location": [0, 0],
     });
 
-    Event testEvent = Event.from(
-      kind: 1,
-      content: jsonString,
-      privkey: NostrSettings.roomPrivateKey,
-      verify: true,
+    _webSocket?.sink.add(
+      NostrSettings.getSerializedEvent(
+        jsonString,
+        NostrSettings.roomPrivateKey,
+      ),
     );
-
-    _webSocket?.sink.add(testEvent.serialize());
-    log("📡 Sent Nostr event: ${testEvent.serialize()}");
   }
 
   static Future<Map<String, dynamic>> requestInitialMessage(

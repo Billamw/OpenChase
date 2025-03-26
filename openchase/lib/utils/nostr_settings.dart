@@ -19,4 +19,14 @@ class NostrSettings {
     ]);
     return requestWithFilter.serialize();
   }
+
+  static String getSerializedEvent(String jsonString, String privKey) {
+    Event event = Event.from(
+      kind: 1,
+      content: jsonString,
+      privkey: privKey,
+      verify: true,
+    );
+    return event.serialize();
+  }
 }
