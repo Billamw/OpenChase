@@ -3,19 +3,20 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:openchase/invited_room_screen.dart';
+import 'package:openchase/player_invited_screen.dart';
 import 'package:openchase/utils/inistial_nostr.dart';
+import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
-class JoinRoomScreen extends StatefulWidget {
-  const JoinRoomScreen({super.key});
+class PlayerJoinScreen extends StatefulWidget {
+  const PlayerJoinScreen({super.key});
 
   @override
   // ignore: library_private_types_in_public_api
-  _JoinRoomScreenState createState() => _JoinRoomScreenState();
+  _PlayerJoinScreenState createState() => _PlayerJoinScreenState();
 }
 
-class _JoinRoomScreenState extends State<JoinRoomScreen> {
+class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
@@ -113,12 +114,14 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                 child: Text("Join"),
                 onPressed: () {
                   log("joined pressed");
+                  NostrSettings.roomCode = code;
+                  NostrSettings.roomHost = hostName;
                   InitialNostr.sendJoinNostr(_nameController.text.trim());
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder:
-                          (context) => InvitedRoomScreen(
+                          (context) => PlayerInvitateScreen(
                             playerName: _nameController.text.trim(),
                             code: code,
                           ),

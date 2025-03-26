@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:openchase/join_room_screen.dart';
-import 'package:openchase/setup_room_screen.dart';
+import 'package:openchase/player_join_screen.dart';
+import 'package:openchase/host_setup_screen.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/player.dart';
 import 'package:latlong2/latlong.dart';
@@ -66,7 +66,7 @@ class MainScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => SetupRoomScreen(),
+                          builder: (context) => HostSetupScreen(),
                         ),
                       );
                     },
@@ -80,7 +80,7 @@ class MainScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => JoinRoomScreen(),
+                          builder: (context) => PlayerJoinScreen(),
                         ),
                       );
                     },

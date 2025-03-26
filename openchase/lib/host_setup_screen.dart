@@ -1,17 +1,17 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:openchase/invite_room_screen.dart';
+import 'package:openchase/host_invite_screen.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
-class SetupRoomScreen extends StatefulWidget {
-  const SetupRoomScreen({super.key});
+class HostSetupScreen extends StatefulWidget {
+  const HostSetupScreen({super.key});
 
   @override
-  State<SetupRoomScreen> createState() => _SetupRoomScreenState();
+  State<HostSetupScreen> createState() => _HostSetupScreenState();
 }
 
-class _SetupRoomScreenState extends State<SetupRoomScreen> {
+class _HostSetupScreenState extends State<HostSetupScreen> {
   final TextEditingController _nameController = TextEditingController();
   final FocusNode _nameFocusNode = FocusNode();
 
@@ -80,7 +80,7 @@ class _SetupRoomScreenState extends State<SetupRoomScreen> {
       MaterialPageRoute(
         builder:
             (context) =>
-                InviteRoomScreen(playerName: _nameController.text.trim()),
+                HostInviteScreen(playerName: _nameController.text.trim()),
       ),
     );
   }

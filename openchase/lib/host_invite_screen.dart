@@ -5,16 +5,16 @@ import 'package:openchase/utils/inistial_nostr.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/continuous_nostr.dart';
 
-class InviteRoomScreen extends StatefulWidget {
+class HostInviteScreen extends StatefulWidget {
   final String playerName;
 
-  const InviteRoomScreen({super.key, required this.playerName});
+  const HostInviteScreen({super.key, required this.playerName});
 
   @override
-  State<InviteRoomScreen> createState() => _InviteRoomScreenState();
+  State<HostInviteScreen> createState() => _HostInviteScreenState();
 }
 
-class _InviteRoomScreenState extends State<InviteRoomScreen> {
+class _HostInviteScreenState extends State<HostInviteScreen> {
   String _generatedCode = '';
   late ContinuousNostr _nostrListener;
   // ignore: prefer_final_fields

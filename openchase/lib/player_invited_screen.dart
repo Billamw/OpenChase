@@ -5,21 +5,21 @@ import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/continuous_nostr.dart';
 
-class InvitedRoomScreen extends StatefulWidget {
+class PlayerInvitateScreen extends StatefulWidget {
   final String playerName;
   final String code;
 
-  const InvitedRoomScreen({
+  const PlayerInvitateScreen({
     super.key,
     required this.playerName,
     required this.code,
   });
 
   @override
-  State<InvitedRoomScreen> createState() => _InvitedRoomScreenState();
+  State<PlayerInvitateScreen> createState() => _PlayerInvitateScreenState();
 }
 
-class _InvitedRoomScreenState extends State<InvitedRoomScreen> {
+class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
   late ContinuousNostr _nostrListener;
   // ignore: prefer_final_fields
   List<Map<String, dynamic>> _receivedMessages = [];
@@ -30,7 +30,7 @@ class _InvitedRoomScreenState extends State<InvitedRoomScreen> {
       "test nostrData ${NostrSettings.roomCode} host: ${NostrSettings.roomHost}",
     );
     super.initState();
-    _receivedMessages.add({"name": widget.playerName});
+    _receivedMessages.add({"name": NostrSettings.roomHost});
 
     // ✅ Initialize ContinuousNostr and listen for messages
     _nostrListener = ContinuousNostr(
@@ -97,33 +97,6 @@ class _InvitedRoomScreenState extends State<InvitedRoomScreen> {
                   );
                 },
               ),
-            ),
-
-            const Spacer(),
-
-            // Start Button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                ElevatedButton(
-                  child: const Text('Start'),
-                  onPressed: () async {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('TODO Implement the room creation logic'),
-                      ),
-                    );
-
-                    // TODO: Implement the room creation logic
-                  },
-                ),
-              ],
             ),
           ],
         ),
