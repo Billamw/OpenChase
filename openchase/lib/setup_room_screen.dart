@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:openchase/invite_room_screen.dart';
 import 'package:openchase/utils/ui_helper.dart';
