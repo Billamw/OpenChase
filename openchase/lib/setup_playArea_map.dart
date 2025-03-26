@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:openchase/setup_items_map.dart';
 import 'package:openchase/utils/circle_generator.dart';
+import 'package:openchase/utils/location_service.dart';
 
 class SetupPage extends StatefulWidget {
   @override
@@ -20,6 +21,8 @@ class _SetupPageState extends State<SetupPage> {
   bool isLocationSet = false;
   double currentZoom = 13.0; // Initial zoom level
 
+  final GeolocatorService geolocatorService = GeolocatorService();
+
   @override
   void initState() {
     super.initState();
@@ -27,31 +30,22 @@ class _SetupPageState extends State<SetupPage> {
     _getCurrentLocation();
   }
 
-  // Method to get the current location
+  // Method to get the current location using GeolocatorService
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // If location services are not enabled
-      return;
-    }
+    // Hier verwenden wir den GeolocatorService, um den Standort zu holen
+    try {
+      LatLng position = await geolocatorService.getCurrentLocation();
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      // Standort erfolgreich abgerufen
+      if (mounted) {
+        setState(() {
+          currentLocation = position;
+          isLocationSet = true;
+        });
+      }
+    } catch (e) {
+      print("Fehler beim Abrufen des Standorts: $e");
     }
-
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return; // Location access denied
-    }
-
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-    setState(() {
-      currentLocation = LatLng(position.latitude, position.longitude);
-      isLocationSet = true;
-    });
   }
 
   // Method to update the radius

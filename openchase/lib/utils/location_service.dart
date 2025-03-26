@@ -11,19 +11,6 @@ class GeolocatorService {
   factory GeolocatorService() => _instance;
   GeolocatorService._internal();
 
-  /// Startet die regelmäßige Standortaktualisierung alle 3 Sekunden
-  void startLocationUpdates() {
-    _locationUpdateTimer?.cancel(); // Sicherstellen, dass kein Timer doppelt läuft
-    _locationUpdateTimer = Timer.periodic(Duration(seconds: 3), (_) async {
-      await _updateLocation();
-    });
-  }
-
-  /// Stoppt die regelmäßige Standortaktualisierung
-  void stopLocationUpdates() {
-    _locationUpdateTimer?.cancel();
-  }
-
   /// Gibt den aktuellen Standort zurück (einmalige Abfrage)
   Future<LatLng> getCurrentLocation() async {
     return await _updateLocation();
@@ -46,8 +33,7 @@ class GeolocatorService {
   /// Holt die aktuelle Position, wenn es ein iOS- oder Android-Gerät ist,
   /// ansonsten wird die Standardposition verwendet
   Future<LatLng> _updateLocation() async {
-    if (defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform != TargetPlatform.linux) {
       if (!await _checkLocationPermission()) {
         print("Standortberechtigung verweigert.");
         return _currentPosition;
