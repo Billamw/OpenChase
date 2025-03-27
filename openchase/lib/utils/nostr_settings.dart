@@ -1,5 +1,3 @@
-import 'package:nostr/nostr.dart';
-
 class NostrSettings {
   static const String initialPublicKey =
       "b32dfd2fecc15b89e20bc819241cfd4f60606143bd72b4928bbb4f6d1d60f335";
@@ -14,20 +12,31 @@ class NostrSettings {
   static String roomCode = "";
   static List players = [];
 
-  static String getSerializedRequest(String pubKey) {
-    Request requestWithFilter = Request(generate64RandomHexChars(), [
-      Filter(authors: [pubKey], since: currentUnixTimestampSeconds() - 5 * 60),
-    ]);
-    return requestWithFilter.serialize();
+  static String gamePublicKey = "";
+  static String gamePrivateKey = "";
+
+  static void removeAllData() {
+    roomPublicKey = "";
+    roomPrivateKey = "";
+    userName = "";
+    roomHost = "";
+    roomCode = "";
+    players = [];
+
+    gamePublicKey = "";
+    gamePrivateKey = "";
   }
 
-  static String getSerializedEvent(String jsonString, String privKey) {
-    Event event = Event.from(
-      kind: 1,
-      content: jsonString,
-      privkey: privKey,
-      verify: true,
-    );
-    return event.serialize();
+  static String getFormattedRoomInfo() {
+    return '''
+{
+  "roomPublicKey": "$roomPublicKey",
+  "roomPrivateKey": "$roomPrivateKey",
+  "userName": "$userName",
+  "roomHost": "$roomHost",
+  "roomCode": "$roomCode",
+  "players": ${players.toString()}
+}
+''';
   }
 }
