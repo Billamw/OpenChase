@@ -64,6 +64,18 @@ class InitialNostr {
     );
   }
 
+  static Future<void> sendInitialJoinNostr() async {
+    if (_webSocket == null) await _connect();
+    var jsonString = json.encode({"name": NostrSettings.userName});
+    _webSocket?.sink.add(
+      NostrHelper.getSerializedEvent(jsonString, NostrSettings.roomPrivateKey),
+    );
+    dev.log(
+      "📡 ${NostrSettings.getFormattedRoomInfo()}",
+      name: "log.Test.NostrDataInfo.sendJoinNostr",
+    );
+  }
+
   /// Player send initial request to get room keys and data
   static Future<Map<String, dynamic>> requestInitialMessage(
     String roomCode,
@@ -81,6 +93,10 @@ class InitialNostr {
       String content = NostrHelper.getContentFromMessage(message);
       if (content.isEmpty) return;
       var jsonData = json.decode(content);
+      dev.log(
+        "Initial message received: $jsonData",
+        name: "log.Test.requestInitialMessage",
+      );
       String roomCodeMessage = jsonData["roomCode"];
       String hostName = jsonData["host"];
       String privateKey = jsonData["private"];

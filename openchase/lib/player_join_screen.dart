@@ -1,11 +1,8 @@
 // ignore_for_file: use_build_context_synchronously
-
 import 'dart:developer' as dev;
-
 import 'package:flutter/material.dart';
 import 'package:openchase/player_invited_screen.dart';
 import 'package:openchase/utils/nostrConnections/initial_nostr.dart';
-import 'package:openchase/utils/nostrConnections/room_nostr.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
@@ -96,11 +93,10 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
     NostrSettings.roomCode = _codeController.text.trim().toUpperCase();
     NostrSettings.roomHost = hostdata["host"];
     NostrSettings.players.add(hostdata["host"]);
-    NostrSettings.players =
-        {...NostrSettings.players, ...hostdata["players"]}.toList();
+    NostrSettings.addPlayersWithoutDuplicates(hostdata["players"]);
     NostrSettings.roomPrivateKey = hostdata["private"];
     NostrSettings.roomPublicKey = hostdata["public"];
-    RoomNostr.sendJoinNostr();
+    InitialNostr.sendInitialJoinNostr();
   }
 
   Future<bool?> _showJoinConfirmationDialog(

@@ -15,6 +15,10 @@ class NostrSettings {
   static String gamePublicKey = "";
   static String gamePrivateKey = "";
 
+  static void addPlayersWithoutDuplicates(List newPlayers) {
+    players = {...players, ...newPlayers}.toList();
+  }
+
   static void removeAllData() {
     roomPublicKey = "";
     roomPrivateKey = "";

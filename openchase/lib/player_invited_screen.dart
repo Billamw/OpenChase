@@ -15,24 +15,25 @@ class PlayerInvitateScreen extends StatefulWidget {
 class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
   late RoomNostr _nostrListener;
   // ignore: prefer_final_fields
-  List _players = [];
+  List _players = [NostrSettings.roomHost];
 
   @override
   void initState() {
     super.initState();
     NostrSettings.players.add(NostrSettings.userName);
-    _players = NostrSettings.players;
 
     // ✅ Initialize ContinuousNostr and listen for messages
     _nostrListener = RoomNostr(
       onMessageReceived: (message) {
         setState(() {
-          _players.add(message);
+          _players =
+              [
+                ..._players,
+                ...[message],
+              ].toList();
         });
       },
     );
-
-    _nostrListener.connect(); // Start WebSocket connection
   }
 
   @override
