@@ -1,10 +1,8 @@
 // ignore_for_file: use_build_context_synchronously
-
-import 'dart:developer';
-
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:openchase/player_invited_screen.dart';
-import 'package:openchase/utils/inistial_nostr.dart';
+import 'package:openchase/utils/nostrConnections/initial_nostr.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
@@ -38,7 +36,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
     _codeController.dispose();
     _nameFocus.dispose();
     _codeFocus.dispose();
-    InitialNostr.closeWebSocket(message: "join dispose");
+    InitialNostr.close(message: "playerJoin dispose");
     super.dispose();
   }
 
@@ -50,6 +48,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
     final code = _codeController.text.trim().toUpperCase();
 
     Map hostData = await InitialNostr.requestInitialMessage(code);
+    dev.log("hostData: $hostData", name: "log.Test.joinRoom");
 
     if (name.isEmpty) {
       setState(() => _nameError = "Name can't be empty");
@@ -85,8 +84,19 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Room not found")));
-      InitialNostr.closeWebSocket();
+      InitialNostr.close();
     }
+  }
+
+  void _updateNostr(Map hostdata) {
+    NostrSettings.userName = _nameController.text.trim();
+    NostrSettings.roomCode = _codeController.text.trim().toUpperCase();
+    NostrSettings.roomHost = hostdata["host"];
+    NostrSettings.players.add(hostdata["host"]);
+    NostrSettings.addPlayersWithoutDuplicates(hostdata["players"]);
+    NostrSettings.roomPrivateKey = hostdata["private"];
+    NostrSettings.roomPublicKey = hostdata["public"];
+    InitialNostr.sendInitialJoinNostr();
   }
 
   Future<bool?> _showJoinConfirmationDialog(
@@ -94,31 +104,28 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
     Map hostdata,
     String code,
   ) async {
-    String hostName = hostdata["host"];
-    List players = hostdata["players"];
     return showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
             title: Text("Join $code?"),
-            content: Text("Are you sure you want to join $hostName's room?"),
+            content: Text(
+              "Are you sure you want to join ${hostdata["host"]}'s room?",
+            ),
             actions: [
               TextButton(
                 child: Text("Cancel"),
                 onPressed: () {
                   Navigator.pop(context);
-                  InitialNostr.closeWebSocket(message: "Cancel join");
+                  InitialNostr.close(message: "Cancel join");
                 },
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(foregroundColor: Colors.green),
                 child: Text("Join"),
                 onPressed: () {
-                  log("joined pressed");
-                  NostrSettings.roomCode = code;
-                  NostrSettings.roomHost = hostName;
-                  NostrSettings.players = players;
-                  InitialNostr.sendJoinNostr(_nameController.text.trim());
+                  // Saves the data for the Player
+                  _updateNostr(hostdata);
                   Navigator.push(
                     context,
                     MaterialPageRoute(

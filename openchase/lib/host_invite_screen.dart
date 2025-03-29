@@ -1,9 +1,11 @@
+import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:openchase/utils/inistial_nostr.dart';
+import 'package:openchase/utils/nostrConnections/initial_nostr.dart';
+import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
-import 'package:openchase/utils/continuous_nostr.dart';
+import 'package:openchase/utils/nostrConnections/room_nostr.dart';
 
 class HostInviteScreen extends StatefulWidget {
   final String playerName;
@@ -16,7 +18,7 @@ class HostInviteScreen extends StatefulWidget {
 
 class _HostInviteScreenState extends State<HostInviteScreen> {
   String _generatedCode = '';
-  late ContinuousNostr _nostrListener;
+  late RoomNostr _roomNostr;
   // ignore: prefer_final_fields
   List _players = [];
 
@@ -31,24 +33,22 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
     super.initState();
     _generateRandomCode();
     _players.add(widget.playerName);
-    InitialNostr.connect(); // ✅ Open WebSocket when screen loads
+    // needs to be before RoomNostr call for room keys to be set
     InitialNostr.sendInitialNostr(_players, widget.playerName, _generatedCode);
 
-    // ✅ Initialize ContinuousNostr and listen for messages
-    _nostrListener = ContinuousNostr(
+    _roomNostr = RoomNostr(
       onMessageReceived: (message) {
         setState(() {
           _players.add(message);
         });
       },
     );
-
-    _nostrListener.connect(); // Start WebSocket connection
   }
 
   @override
   void dispose() {
-    _nostrListener.close(); // ✅ Close WebSocket when screen is closed
+    NostrSettings.removeAllData();
+    _roomNostr.close(); // ✅ Close WebSocket when screen is closed
     super.dispose();
   }
 
