@@ -5,7 +5,11 @@ class Player {
   final String name;
   final Color color;
   final List<LatLng> positionHistory;
+  late List<LatLng> shownPositionHistory = [];
   late LatLng currentPosition;
+  bool trailVisible = true;
+  bool visible = true;
+  late LatLng shownPosition;
 
   bool isMrX;
 
@@ -18,7 +22,23 @@ class Player {
   });
 
   void updatePosition(LatLng newPosition) {
-    currentPosition = newPosition;
     positionHistory.add(newPosition);
+    newPosition = currentPosition;
   }
+
+  void revealPosition() {
+    shownPosition = currentPosition;
+  }
+
+  void revealPositionHistory() {
+    shownPositionHistory = positionHistory;
+  }
+
+void setTrailVisibility(bool visible) {
+  trailVisible = visible;
+}
+
+void setVisibility (bool visible) {
+  this.visible = visible;
+}
 }
