@@ -1,6 +1,7 @@
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:openchase/setup_playArea_map.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/nostrConnections/room_nostr.dart';
@@ -25,13 +26,24 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
     // ✅ Initialize ContinuousNostr and listen for messages
     _nostrListener = RoomNostr(
       onMessageReceived: (message) {
-        setState(() {
-          _players =
-              [
-                ..._players,
-                ...[message],
-              ].toList();
-        });
+        if (message.containsKey("name")) {
+          setState(() {
+            _players =
+                [
+                  ..._players,
+                  ...[message["name"]],
+                ].toList();
+          });
+        }
+        if (message.containsKey("gamePrivateKey")) {
+          NostrSettings.gamePublicKey = message["gamePublicKey"];
+          NostrSettings.gamePrivateKey = message["gamePrivateKey"];
+          dev.log("Game started", name: "log.Test.StartGame.listened");
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SetupPage()),
+          );
+        }
       },
     );
   }

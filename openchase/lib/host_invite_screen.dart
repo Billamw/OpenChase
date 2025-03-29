@@ -2,6 +2,7 @@ import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:openchase/setup_playArea_map.dart';
 import 'package:openchase/utils/nostrConnections/initial_nostr.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
@@ -39,7 +40,7 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
     _roomNostr = RoomNostr(
       onMessageReceived: (message) {
         setState(() {
-          _players.add(message);
+          _players.add(message["name"]);
         });
       },
     );
@@ -121,13 +122,11 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
                 ElevatedButton(
                   child: const Text('Start'),
                   onPressed: () async {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('TODO Implement the room creation logic'),
-                      ),
+                    _roomNostr.sendGameNotr();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => SetupPage()),
                     );
-
-                    // TODO: Implement the room creation logic
                   },
                 ),
               ],
