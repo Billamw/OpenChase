@@ -1,17 +1,14 @@
 import 'dart:convert';
 import 'dart:developer' as dev;
 
-import 'package:nostr/nostr.dart';
 import 'package:openchase/utils/nostr/abstract_nostr.dart';
 import 'package:openchase/utils/nostr/nostr_helper.dart';
 import 'package:openchase/utils/game_manager.dart';
 
 class PlayerRoomNostr extends BaseNostr {
-  late Keychain gameKeys;
   final Function(Map) onMessageReceived;
 
   PlayerRoomNostr({required this.onMessageReceived}) {
-    gameKeys = Keychain.generate();
     connect();
   }
 
@@ -31,21 +28,23 @@ class PlayerRoomNostr extends BaseNostr {
       if (content.isEmpty) return;
 
       Map<String, dynamic> jsonName = json.decode(content);
-      dev.log("message: $jsonName", name: "log.Test.RoomNostr.listen");
+      dev.log("message: $jsonName", name: "log.Test.PlayerRoomNostr.listen");
 
-      if (jsonName.containsKey("name")) {
-        GameManager.players.add(jsonName["name"]);
+      if (jsonName.containsKey("joined") ||
+          jsonName.containsKey("gamePrivateKey") ||
+          jsonName.containsKey("left")) {
         onMessageReceived(jsonName);
-        dev.log(
-          "Players in Settings: ${GameManager.players}",
-          name: "log.Test.ArrayCheck.listen",
-        );
-      }
-
-      if (jsonName.containsKey("gamePrivateKey")) {
-        onMessageReceived(jsonName);
-        dev.log("Game started", name: "log.Test.StartGame.listen");
       }
     });
+  }
+
+  void leaveGameNostr() async {
+    var jsonString = json.encode({"left": GameManager.userName});
+
+    webSocket?.sink.add(
+      NostrHelper.getSerializedEvent(jsonString, GameManager.roomPrivateKey),
+    );
+
+    dev.log("Sent Game Nostr", name: "log.Test.sendGameNostr");
   }
 }

@@ -5,7 +5,6 @@ import 'package:nostr/nostr.dart';
 import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/nostr/abstract_nostr.dart';
 import 'package:openchase/utils/nostr/nostr_helper.dart';
-import 'package:openchase/utils/game_manager.dart';
 
 class HostRoomNostr extends BaseNostr {
   late Keychain gameKeys;
@@ -34,13 +33,21 @@ class HostRoomNostr extends BaseNostr {
       Map<String, dynamic> jsonName = json.decode(content);
       dev.log("message: $jsonName", name: "log.Test.RoomNostr.listen");
 
-      if (jsonName.containsKey("name")) {
-        GameManager.players.add(jsonName["name"]);
+      if (jsonName.containsKey("joined")) {
+        GameManager.players.add(jsonName["joined"]);
         onMessageReceived(jsonName);
         dev.log(
           "Players in Settings: ${GameManager.players}",
           name: "log.Test.ArrayCheck.listen",
         );
+      }
+      if (jsonName.containsKey("left")) {
+        dev.log(
+          "Player left: ${jsonName["left"]}",
+          name: "log.Test.HostNostr.listened",
+        );
+        GameManager.players.remove(jsonName["left"]);
+        onMessageReceived(jsonName);
       }
     });
   }

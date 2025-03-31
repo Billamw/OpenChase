@@ -5,7 +5,6 @@ import 'package:openchase/setup_playArea_map.dart';
 import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/nostr/player_room_nostr.dart';
 import 'package:openchase/utils/ui_helper.dart';
-import 'package:openchase/utils/nostr/room_nostr.dart';
 
 class PlayerInvitateScreen extends StatefulWidget {
   const PlayerInvitateScreen({super.key});
@@ -15,7 +14,7 @@ class PlayerInvitateScreen extends StatefulWidget {
 }
 
 class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
-  late PlayerRoomNostr _nostrListener;
+  late PlayerRoomNostr _roomNostr;
   // ignore: prefer_final_fields
   List _players = [GameManager.roomHost];
 
@@ -25,9 +24,20 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
     // GameManager.players.add(GameManager.userName);
 
     // ✅ Initialize ContinuousNostr and listen for messages
-    _nostrListener = PlayerRoomNostr(
+    _roomNostr = PlayerRoomNostr(
       onMessageReceived: (message) {
-        if (message.containsKey("name")) {
+        if (message.containsKey("joined")) {
+          GameManager.players.add(message["joined"]);
+          setState(() {
+            _players = GameManager.players;
+          });
+        }
+        if (message.containsKey("left")) {
+          GameManager.players.remove(message["left"]);
+          dev.log(
+            "Player left: ${message["left"]}",
+            name: "log.Test.PlayerLeft.listened",
+          );
           setState(() {
             _players = GameManager.players;
           });
@@ -48,7 +58,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
   @override
   void dispose() {
     GameManager.removeAllData();
-    _nostrListener.close(); // ✅ Close WebSocket when screen is closed
+    _roomNostr.close(); // ✅ Close WebSocket when screen is closed
     super.dispose();
   }
 
@@ -59,7 +69,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
       onPopInvokedWithResult: (didPop, Object? content) async {
         if (didPop) return;
 
-        bool shouldLeave = await showDialog(
+        await showDialog(
           context: context,
           builder:
               (context) => AlertDialog(
@@ -77,6 +87,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
                   ),
                   TextButton(
                     onPressed: () {
+                      _roomNostr.leaveGameNostr();
                       GameManager.removeAllData(); // Cleanup before leaving
                       Navigator.of(context).pop(true); // Close dialog
                       Navigator.of(

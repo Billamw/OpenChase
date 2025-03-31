@@ -43,6 +43,10 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
     _roomNostr = HostRoomNostr(
       onMessageReceived: (message) {
         setState(() {
+          dev.log(
+            "players: ${GameManager.players}",
+            name: "log.Test.HostInviteScreen.listened",
+          );
           _players = GameManager.players;
         });
       },

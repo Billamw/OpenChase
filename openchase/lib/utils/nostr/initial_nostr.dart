@@ -53,7 +53,7 @@ class InitialNostr extends BaseNostr {
 
   Future<void> sendInitialJoinNostr() async {
     if (webSocket == null) await connect();
-    var jsonString = json.encode({"name": GameManager.userName});
+    var jsonString = json.encode({"joined": GameManager.userName});
     webSocket?.sink.add(
       NostrHelper.getSerializedEvent(jsonString, GameManager.roomPrivateKey),
     );
