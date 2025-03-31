@@ -33,14 +33,15 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
   void initState() {
     super.initState();
     _generateRandomCode();
-    _players.add(widget.playerName);
+    NostrSettings.players.add(widget.playerName);
+    _players = NostrSettings.players;
     // needs to be before RoomNostr call for room keys to be set
     InitialNostr.sendInitialNostr(_players, widget.playerName, _generatedCode);
 
     _roomNostr = RoomNostr(
       onMessageReceived: (message) {
         setState(() {
-          _players.add(message["name"]);
+          _players = NostrSettings.players;
         });
       },
     );

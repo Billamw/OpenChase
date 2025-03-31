@@ -21,18 +21,14 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
   @override
   void initState() {
     super.initState();
-    NostrSettings.players.add(NostrSettings.userName);
+    // NostrSettings.players.add(NostrSettings.userName);
 
     // ✅ Initialize ContinuousNostr and listen for messages
     _nostrListener = RoomNostr(
       onMessageReceived: (message) {
         if (message.containsKey("name")) {
           setState(() {
-            _players =
-                [
-                  ..._players,
-                  ...[message["name"]],
-                ].toList();
+            _players = NostrSettings.players;
           });
         }
         if (message.containsKey("gamePrivateKey")) {

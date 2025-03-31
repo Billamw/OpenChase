@@ -43,12 +43,14 @@ class RoomNostr {
       dev.log("message: $jsonName", name: "log.Test.RoomNostr._listen");
       // for everyone adding new players to their list
       if (jsonName.containsKey("name")) {
-        // NostrSettings.players.add(jsonName["name"]);
-        // NostrSettings.addPlayersWithoutDuplicates([jsonName["name"]]);
+        NostrSettings.players.add(jsonName["name"]);
         onMessageReceived(jsonName); // Send data to the UI
-        dev.log("message: $jsonName", name: "log.Test.playersCheck.initState");
+        dev.log(
+          "Players in Settings: ${NostrSettings.players}",
+          name: "log.Test.ArrayCheck._listen",
+        );
       }
-      // for the players to start the game.
+      // Only for player important.
       if (jsonName.containsKey("gamePrivateKey")) {
         onMessageReceived(jsonName);
         dev.log("Game started", name: "log.Test.StartGame.listen");
