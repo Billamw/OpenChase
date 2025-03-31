@@ -2,7 +2,7 @@
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:openchase/player_invited_screen.dart';
-import 'package:openchase/utils/nostrConnections/initial_nostr.dart';
+import 'package:openchase/utils/nostr/initial_nostr.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
@@ -19,6 +19,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   final TextEditingController _codeController = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _codeFocus = FocusNode();
+  late InitialNostr _initialNostr;
 
   String? _nameError;
   String? _codeError;
@@ -31,12 +32,18 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _initialNostr = InitialNostr();
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _codeController.dispose();
     _nameFocus.dispose();
     _codeFocus.dispose();
-    InitialNostr.close(message: "playerJoin dispose");
+    _initialNostr.close(message: "playerJoin dispose");
     super.dispose();
   }
 
@@ -47,8 +54,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
     final name = _nameController.text.trim();
     final code = _codeController.text.trim().toUpperCase();
 
-    Map hostData = await InitialNostr.requestInitialMessage(code);
-    dev.log("hostData: $hostData", name: "log.Test.joinRoom");
+    bool roomExists = await _initialNostr.requestInitialMessage(code);
 
     if (name.isEmpty) {
       setState(() => _nameError = "Name can't be empty");
@@ -78,30 +84,24 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
     // Close loading indicator
     Navigator.of(context).pop();
 
-    if (hostData["exists"]) {
-      await _showJoinConfirmationDialog(context, hostData, code);
+    if (roomExists) {
+      await _showJoinConfirmationDialog(context, code);
     } else {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Room not found")));
-      InitialNostr.close();
+      _initialNostr.close();
     }
   }
 
-  void _updateNostr(Map hostdata) {
+  void _updateNostr() {
     NostrSettings.userName = _nameController.text.trim();
     NostrSettings.roomCode = _codeController.text.trim().toUpperCase();
-    NostrSettings.roomHost = hostdata["host"];
-    NostrSettings.players.add(hostdata["host"]);
-    NostrSettings.addPlayersWithoutDuplicates(hostdata["players"]);
-    NostrSettings.roomPrivateKey = hostdata["private"];
-    NostrSettings.roomPublicKey = hostdata["public"];
-    InitialNostr.sendInitialJoinNostr();
+    _initialNostr.sendInitialJoinNostr();
   }
 
   Future<bool?> _showJoinConfirmationDialog(
     BuildContext context,
-    Map hostdata,
     String code,
   ) async {
     return showDialog<bool>(
@@ -110,14 +110,14 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
           (context) => AlertDialog(
             title: Text("Join $code?"),
             content: Text(
-              "Are you sure you want to join ${hostdata["host"]}'s room?",
+              "Are you sure you want to join ${NostrSettings.roomHost}'s room?",
             ),
             actions: [
               TextButton(
                 child: Text("Cancel"),
                 onPressed: () {
                   Navigator.pop(context);
-                  InitialNostr.close(message: "Cancel join");
+                  _initialNostr.close(message: "Cancel join");
                 },
               ),
               ElevatedButton(
@@ -125,7 +125,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
                 child: Text("Join"),
                 onPressed: () {
                   // Saves the data for the Player
-                  _updateNostr(hostdata);
+                  _updateNostr();
                   Navigator.push(
                     context,
                     MaterialPageRoute(

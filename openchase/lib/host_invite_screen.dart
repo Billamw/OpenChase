@@ -3,10 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:openchase/setup_playArea_map.dart';
-import 'package:openchase/utils/nostrConnections/initial_nostr.dart';
+import 'package:openchase/utils/nostr/initial_nostr.dart';
 import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
-import 'package:openchase/utils/nostrConnections/room_nostr.dart';
+import 'package:openchase/utils/nostr/room_nostr.dart';
 
 class HostInviteScreen extends StatefulWidget {
   final String playerName;
@@ -36,7 +36,8 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
     NostrSettings.players.add(widget.playerName);
     _players = NostrSettings.players;
     // needs to be before RoomNostr call for room keys to be set
-    InitialNostr.sendInitialNostr(_players, widget.playerName, _generatedCode);
+    InitialNostr initialNostr = InitialNostr();
+    initialNostr.sendInitialNostr(_players, widget.playerName, _generatedCode);
 
     _roomNostr = RoomNostr(
       onMessageReceived: (message) {
@@ -123,7 +124,7 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
                 ElevatedButton(
                   child: const Text('Start'),
                   onPressed: () async {
-                    _roomNostr.sendGameNotr();
+                    _roomNostr.sendGameNostr();
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => SetupPage()),
