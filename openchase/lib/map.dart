@@ -54,8 +54,9 @@ Future<void> _updateLocation() async {
     if (mounted) {
       setState(() {
         _currentPosition = position;
-        _user.currentPosition = _currentPosition;
-        _user.positionHistory.add(_currentPosition); // Position speichern
+        _user.updatePosition(position);
+        _user.revealPosition();
+        _user.revealPositionHistory();
         _loading = false;
       });
 
@@ -157,9 +158,9 @@ void dispose() {
             ...widget.players.map((player) {
               return PolylineLayer(
                 polylines: [
-                  if (player.positionHistory.length > 1)
+                  if (player.shownPositionHistory.length > 1 && player.trailVisible)
                     Polyline(
-                      points: player.positionHistory,
+                      points: player.shownPositionHistory,
                       strokeWidth: 5.0,
                       color: player.color,
                     ),
@@ -170,7 +171,7 @@ void dispose() {
             MarkerLayer(
               markers: widget.players.map((player) {
                 return Marker(
-                  point: player.currentPosition,
+                  point: player.shownPosition,
                   width: 200,
                   height: 114,
                   alignment: Alignment(0, -0.75),
@@ -195,7 +196,7 @@ void dispose() {
                       SizedBox(height: 5),
                       GestureDetector(
                         onTap: () {
-                          _animatedMapMove(player.currentPosition, 17.0);
+                          _animatedMapMove(player.shownPosition, 17.0);
                         },
                         child: player.isMrX
                             ? Image.asset('images/mrx.png', width: 75, height: 68)
