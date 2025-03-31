@@ -1,12 +1,13 @@
-import 'dart:developer' as dev;
 import 'dart:math';
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:openchase/setup_playArea_map.dart';
-import 'package:openchase/utils/nostr/initial_nostr.dart';
-import 'package:openchase/utils/nostr_settings.dart';
 import 'package:openchase/utils/ui_helper.dart';
-import 'package:openchase/utils/nostr/room_nostr.dart';
+import 'package:openchase/setup_playArea_map.dart';
+import 'package:openchase/utils/game_manager.dart';
+import 'package:openchase/utils/nostr/host_room_nostr.dart';
+import 'package:openchase/utils/nostr/initial_nostr.dart';
 
 class HostInviteScreen extends StatefulWidget {
   final String playerName;
@@ -19,7 +20,7 @@ class HostInviteScreen extends StatefulWidget {
 
 class _HostInviteScreenState extends State<HostInviteScreen> {
   String _generatedCode = '';
-  late RoomNostr _roomNostr;
+  late HostRoomNostr _roomNostr;
   // ignore: prefer_final_fields
   List _players = [];
 
@@ -33,16 +34,16 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
   void initState() {
     super.initState();
     _generateRandomCode();
-    NostrSettings.players.add(widget.playerName);
-    _players = NostrSettings.players;
+    GameManager.players.add(widget.playerName);
+    _players = GameManager.players;
     // needs to be before RoomNostr call for room keys to be set
     InitialNostr initialNostr = InitialNostr();
     initialNostr.sendInitialNostr(_players, widget.playerName, _generatedCode);
 
-    _roomNostr = RoomNostr(
+    _roomNostr = HostRoomNostr(
       onMessageReceived: (message) {
         setState(() {
-          _players = NostrSettings.players;
+          _players = GameManager.players;
         });
       },
     );
@@ -50,7 +51,7 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
 
   @override
   void dispose() {
-    NostrSettings.removeAllData();
+    GameManager.removeAllData();
     _roomNostr.close(); // ✅ Close WebSocket when screen is closed
     super.dispose();
   }
@@ -124,7 +125,7 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
                 ElevatedButton(
                   child: const Text('Start'),
                   onPressed: () async {
-                    _roomNostr.sendGameNostr();
+                    _roomNostr.sendGameStartNostr();
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => SetupPage()),

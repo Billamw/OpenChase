@@ -2,7 +2,8 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:openchase/setup_playArea_map.dart';
-import 'package:openchase/utils/nostr_settings.dart';
+import 'package:openchase/utils/game_manager.dart';
+import 'package:openchase/utils/nostr/player_room_nostr.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/utils/nostr/room_nostr.dart';
 
@@ -14,26 +15,26 @@ class PlayerInvitateScreen extends StatefulWidget {
 }
 
 class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
-  late RoomNostr _nostrListener;
+  late PlayerRoomNostr _nostrListener;
   // ignore: prefer_final_fields
-  List _players = [NostrSettings.roomHost];
+  List _players = [GameManager.roomHost];
 
   @override
   void initState() {
     super.initState();
-    // NostrSettings.players.add(NostrSettings.userName);
+    // GameManager.players.add(GameManager.userName);
 
     // ✅ Initialize ContinuousNostr and listen for messages
-    _nostrListener = RoomNostr(
+    _nostrListener = PlayerRoomNostr(
       onMessageReceived: (message) {
         if (message.containsKey("name")) {
           setState(() {
-            _players = NostrSettings.players;
+            _players = GameManager.players;
           });
         }
         if (message.containsKey("gamePrivateKey")) {
-          NostrSettings.gamePublicKey = message["gamePublicKey"];
-          NostrSettings.gamePrivateKey = message["gamePrivateKey"];
+          GameManager.gamePublicKey = message["gamePublicKey"];
+          GameManager.gamePrivateKey = message["gamePrivateKey"];
           dev.log("Game started", name: "log.Test.StartGame.listened");
           Navigator.push(
             context,
@@ -46,7 +47,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
 
   @override
   void dispose() {
-    NostrSettings.removeAllData();
+    GameManager.removeAllData();
     _nostrListener.close(); // ✅ Close WebSocket when screen is closed
     super.dispose();
   }
@@ -76,7 +77,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      NostrSettings.removeAllData(); // Cleanup before leaving
+                      GameManager.removeAllData(); // Cleanup before leaving
                       Navigator.of(context).pop(true); // Close dialog
                       Navigator.of(
                         context,
@@ -99,9 +100,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
               // Display the generated code
               GestureDetector(
                 onTap: () {
-                  Clipboard.setData(
-                    ClipboardData(text: NostrSettings.roomCode),
-                  );
+                  Clipboard.setData(ClipboardData(text: GameManager.roomCode));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Code copied to clipboard!")),
                   );
@@ -114,7 +113,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
                   padding: const EdgeInsets.all(20),
                   child: Center(
                     child: Text(
-                      NostrSettings.roomCode,
+                      GameManager.roomCode,
                       style: const TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.bold,

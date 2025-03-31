@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:nostr/nostr.dart';
-import 'package:openchase/utils/nostr_helper.dart';
-import 'package:openchase/utils/nostr_settings.dart';
+import 'package:openchase/utils/nostr/nostr_helper.dart';
+import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/nostr/abstract_nostr.dart';
 
 class InitialNostr extends BaseNostr {
@@ -20,16 +20,16 @@ class InitialNostr extends BaseNostr {
   }
 
   /// Host sends the initial Nostr over initialPrivateKey event with room specific keys and data
-  /// Saves the room code, host name, and keys in NostrSettings for the host
+  /// Saves the room code, host name, and keys in GameManager for the host
   Future<void> sendInitialNostr(
     List players,
     String hostName,
     String roomCode,
   ) async {
-    NostrSettings.roomPrivateKey = initialKeys.private;
-    NostrSettings.roomPublicKey = initialKeys.public;
-    NostrSettings.roomCode = roomCode;
-    NostrSettings.roomHost = hostName;
+    GameManager.roomPrivateKey = initialKeys.private;
+    GameManager.roomPublicKey = initialKeys.public;
+    GameManager.roomCode = roomCode;
+    GameManager.roomHost = hostName;
 
     if (webSocket == null) await connect();
 
@@ -42,10 +42,7 @@ class InitialNostr extends BaseNostr {
     });
 
     webSocket?.sink.add(
-      NostrHelper.getSerializedEvent(
-        jsonString,
-        NostrSettings.initialPrivateKey,
-      ),
+      NostrHelper.getSerializedEvent(jsonString, NostrHelper.initialPrivateKey),
     );
 
     dev.log(
@@ -56,12 +53,12 @@ class InitialNostr extends BaseNostr {
 
   Future<void> sendInitialJoinNostr() async {
     if (webSocket == null) await connect();
-    var jsonString = json.encode({"name": NostrSettings.userName});
+    var jsonString = json.encode({"name": GameManager.userName});
     webSocket?.sink.add(
-      NostrHelper.getSerializedEvent(jsonString, NostrSettings.roomPrivateKey),
+      NostrHelper.getSerializedEvent(jsonString, GameManager.roomPrivateKey),
     );
     dev.log(
-      "📡 ${NostrSettings.getFormattedRoomInfo()}",
+      "📡 ${GameManager.getFormattedRoomInfo()}",
       name: "log.Test.NostrDataInfo.sendJoinNostr",
     );
   }
@@ -70,7 +67,7 @@ class InitialNostr extends BaseNostr {
     if (webSocket == null) await connect();
 
     webSocket?.sink.add(
-      NostrHelper.getSerializedRequest(NostrSettings.initialPublicKey),
+      NostrHelper.getSerializedRequest(NostrHelper.initialPublicKey),
     );
 
     Completer<bool> completer = Completer();
@@ -87,12 +84,12 @@ class InitialNostr extends BaseNostr {
 
       if (jsonData["roomCode"] == roomCode) {
         //////////////// TODO Check  these two
-        NostrSettings.players.add(jsonData["host"]);
-        NostrSettings.addPlayersWithoutDuplicates(jsonData["players"]);
+        GameManager.players.add(jsonData["host"]);
+        GameManager.addPlayersWithoutDuplicates(jsonData["players"]);
         ///////////////////
-        NostrSettings.roomHost = jsonData["host"];
-        NostrSettings.roomPrivateKey = jsonData["private"];
-        NostrSettings.roomPublicKey = jsonData["public"];
+        GameManager.roomHost = jsonData["host"];
+        GameManager.roomPrivateKey = jsonData["private"];
+        GameManager.roomPublicKey = jsonData["public"];
         sub?.cancel();
         completer.complete(true);
       }

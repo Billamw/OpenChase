@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:openchase/host_invite_screen.dart';
-import 'package:openchase/utils/nostr_settings.dart';
+import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class HostSetupScreen extends StatefulWidget {
@@ -76,7 +76,7 @@ class _HostSetupScreenState extends State<HostSetupScreen> {
   }
 
   void navigateToInviteRoom() {
-    NostrSettings.roomHost = _nameController.text.trim();
+    GameManager.roomHost = _nameController.text.trim();
     Navigator.push(
       context,
       MaterialPageRoute(

@@ -3,7 +3,7 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:openchase/player_invited_screen.dart';
 import 'package:openchase/utils/nostr/initial_nostr.dart';
-import 'package:openchase/utils/nostr_settings.dart';
+import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class PlayerJoinScreen extends StatefulWidget {
@@ -95,8 +95,8 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   }
 
   void _updateNostr() {
-    NostrSettings.userName = _nameController.text.trim();
-    NostrSettings.roomCode = _codeController.text.trim().toUpperCase();
+    GameManager.userName = _nameController.text.trim();
+    GameManager.roomCode = _codeController.text.trim().toUpperCase();
     _initialNostr.sendInitialJoinNostr();
   }
 
@@ -110,7 +110,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
           (context) => AlertDialog(
             title: Text("Join $code?"),
             content: Text(
-              "Are you sure you want to join ${NostrSettings.roomHost}'s room?",
+              "Are you sure you want to join ${GameManager.roomHost}'s room?",
             ),
             actions: [
               TextButton(

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as dev;
+import 'package:openchase/utils/nostr/nostr_helper.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:openchase/utils/nostr_settings.dart';
 
 abstract class BaseNostr {
   WebSocketChannel? _webSocket;
@@ -10,10 +10,8 @@ abstract class BaseNostr {
     if (_webSocket != null) return; // Prevent multiple connections
 
     try {
-      _webSocket = WebSocketChannel.connect(
-        Uri.parse(NostrSettings.nostrRelay),
-      );
-      dev.log('✅ WebSocket connected to ${NostrSettings.nostrRelay}');
+      _webSocket = WebSocketChannel.connect(Uri.parse(NostrHelper.nostrRelay));
+      dev.log('✅ WebSocket connected to ${NostrHelper.nostrRelay}');
       onConnected(); // Call the overridden method
     } catch (e) {
       dev.log('❌ Failed to connect WebSocket: $e');
