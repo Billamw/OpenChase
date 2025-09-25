@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart'; // Import für DragMarker
 import 'package:openchase/utils/circle_generator.dart';
 import 'package:openchase/map.dart';
+import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/player.dart';
 
 class ItemsTest extends StatefulWidget {
@@ -14,7 +15,11 @@ class ItemsTest extends StatefulWidget {
   final int playareaRadius;
   final int itemCount;
 
-  ItemsTest({required this.playAreaCenter, required this.playareaRadius, this.itemCount = 6});
+  ItemsTest({
+    required this.playAreaCenter,
+    required this.playareaRadius,
+    this.itemCount = 6,
+  });
 
   @override
   _ItemsTestState createState() => _ItemsTestState();
@@ -24,36 +29,6 @@ class _ItemsTestState extends State<ItemsTest> {
   final MapController _mapController = MapController();
   List<DragMarker> _dragMarkers = [];
   bool _isLoading = true;
-    List<Player> players = [
-    Player(
-      name: "Mr. X",
-      isMrX: true,
-      color: Colors.black,
-      positionHistory: [],
-      currentPosition: LatLng(48.1351, 11.5820),
-    ),
-    Player(
-      name: "Detektiv 1",
-      isMrX: false,
-      color: Colors.blue,
-      positionHistory: [],
-      currentPosition: LatLng(48.1361, 11.5830),
-    ),
-    Player(
-      name: "Detektiv 2",
-      isMrX: false,
-      color: Colors.green,
-      positionHistory: [],
-      currentPosition: LatLng(48.1371, 11.5840),
-    ),
-    Player(
-      name: "Detektiv 3",
-      isMrX: false,
-      color: Colors.orange,
-      positionHistory: [],
-      currentPosition: LatLng(48.1381, 11.5850),
-    ),
-  ];
 
   // Zufällige Marker-Positionen
   List<LatLng> _markerPositions = [];
@@ -125,35 +100,36 @@ class _ItemsTestState extends State<ItemsTest> {
 
     setState(() {
       _markerPositions = selectedMarkers.toList();
-      _dragMarkers = _markerPositions.map((pos) {
-        return DragMarker(
-          key: GlobalKey<DragMarkerWidgetState>(),
-          point: pos,
-          size: Size(50, 50),  // Marker-Größe
-          offset: Offset(0, -20),
-          builder: (_, currentPosition, isDragging) {
-            // Bild anstelle eines Icons verwenden
-            return Image.asset(
-              'images/test-item.png',  // Bild für den Marker
-              width: 50,
-              height: 50,
+      _dragMarkers =
+          _markerPositions.map((pos) {
+            return DragMarker(
+              key: GlobalKey<DragMarkerWidgetState>(),
+              point: pos,
+              size: Size(50, 50), // Marker-Größe
+              offset: Offset(0, -20),
+              builder: (_, currentPosition, isDragging) {
+                // Bild anstelle eines Icons verwenden
+                return Image.asset(
+                  'images/test-item.png', // Bild für den Marker
+                  width: 50,
+                  height: 50,
+                );
+              },
+              scrollMapNearEdge: true,
+              scrollNearEdgeRatio: 1.5,
+              scrollNearEdgeSpeed: 5.0,
+              onDragEnd: (details, newPosition) {
+                setState(() {
+                  // Aktualisiere die Marker-Position nach dem Ziehen
+                  int index = _markerPositions.indexOf(pos);
+                  if (index != -1) {
+                    _markerPositions[index] = newPosition;
+                    print("Neue Position: $newPosition");
+                  }
+                });
+              },
             );
-          },
-          scrollMapNearEdge: true,
-                  scrollNearEdgeRatio: 1.5,
-        scrollNearEdgeSpeed: 5.0,
-          onDragEnd: (details, newPosition) {
-            setState(() {
-              // Aktualisiere die Marker-Position nach dem Ziehen
-              int index = _markerPositions.indexOf(pos);
-              if (index != -1) {
-                _markerPositions[index] = newPosition;
-                print("Neue Position: $newPosition");
-              }
-            });
-          },
-        );
-      }).toList();
+          }).toList();
       _isLoading = false;
     });
   }
@@ -161,66 +137,51 @@ class _ItemsTestState extends State<ItemsTest> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Items Setup')),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Expanded(
-                  child: FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: widget.playAreaCenter,
-                      initialZoom: 14,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                      ),
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: CircleGenerator.generateCircle(widget.playAreaCenter, widget.playareaRadius.toDouble()), // Kreis als Polyline
-                            strokeWidth: 8.0,
-                            color: Colors.red, // Randfarbe
+      // ... (AppBar, etc.)
+      body:
+          _isLoading
+              ? Center(child: CircularProgressIndicator())
+              : Column(
+                children: [
+                  // ... (rest of the widget tree)
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Create Player objects from GameManager
+                        List<Player> players =
+                            GameManager.players.map((playerName) {
+                              // You might want to assign colors and other properties here
+                              return Player(
+                                name: playerName,
+                                isMrX:
+                                    playerName ==
+                                    GameManager
+                                        .roomHost, // Example logic for Mr. X
+                                color: Colors.blue, // Example color
+                                positionHistory: [],
+                                currentPosition:
+                                    widget.playAreaCenter, // Initial position
+                              );
+                            }).toList();
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => MapScreen(
+                                  players: players, // Pass the real player list
+                                  playAreaCenter: widget.playAreaCenter,
+                                  playareaRadius: widget.playareaRadius,
+                                ),
                           ),
-                        ],
-                      ),
-                      DragMarkers(
-                        markers: _dragMarkers, // Benutze DragMarker statt Marker
-                        alignment: Alignment.topCenter,
-                      ),
-                    ],
+                        );
+                      },
+                      child: Text("Ready"),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _isLoading = true;
-                      });
-                      _fetchWaysAndGenerateMarkers();
-                    },
-                    child: Text("Randomize item positions"),
-                  ),
-                ),
-                Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MapScreen(players: players, playAreaCenter: widget.playAreaCenter, playareaRadius: widget.playareaRadius),
-                      ),
-                    );
-                  },
-                  child: Text("Ready"),
-                ),
-                ),
-              ],
-            ),
+                ],
+              ),
     );
   }
 }
