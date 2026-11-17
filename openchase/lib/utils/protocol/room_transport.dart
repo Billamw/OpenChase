@@ -16,7 +16,8 @@ class RoomTransport {
   final void Function(int ready, int total)? onRelayReady;
 
   final Map<String, WebSocketChannel> _sockets = {};
-  final Map<String, String> _filters = {}; // logical key -> REQ json (id slot empty)
+  final Map<String, String> _filters =
+      {}; // logical key -> REQ json (id slot empty)
   final Set<String> _seenEventIds = {};
   final List<Timer> _retryTimers = [];
   final Map<String, int> _retryAttempt = {};
@@ -90,7 +91,9 @@ class RoomTransport {
     if (event == null) return;
     if (!_seenEventIds.add(event.id)) return; // cross-relay / replay dedupe
     if (_seenEventIds.length > 8000) {
-      _seenEventIds.removeWhere((_) => true); // coarse reset; dedupe is best-effort
+      _seenEventIds.removeWhere(
+        (_) => true,
+      ); // coarse reset; dedupe is best-effort
     }
     onEvent(event);
   }
@@ -104,9 +107,6 @@ class RoomTransport {
   }
 
   void publish(String serializedEvent) {
-    // TEMP DEBUG
-    // ignore: avoid_print
-    print('[publish] to ${_sockets.length} socket(s): ${serializedEvent.substring(0, 60)}…');
     for (final channel in _sockets.values) {
       channel.sink.add(serializedEvent);
     }

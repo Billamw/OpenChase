@@ -82,8 +82,6 @@ class _SetupPageState extends State<SetupPage> {
     });
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -101,9 +101,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
             children: [
               GestureDetector(
                 onTap: () {
-                  Clipboard.setData(
-                    ClipboardData(text: GameManager.roomCode),
-                  );
+                  Clipboard.setData(ClipboardData(text: GameManager.roomCode));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Code copied to clipboard!")),
                   );

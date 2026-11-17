@@ -23,43 +23,48 @@ class StubRelay {
 
   void _serve() {
     _server.transform(WebSocketTransformer()).listen((ws) {
-      ws.listen((raw) {
-        dynamic msg;
-        try {
-          msg = jsonDecode(raw.toString());
-        } catch (_) {
-          return;
-        }
-        if (msg is! List || msg.isEmpty) return;
-        switch (msg[0]) {
-          case 'REQ':
-            final subId = msg[1] as String;
-            for (final f in msg.skip(2)) {
-              final filter = Map<String, dynamic>.from(f as Map);
-              _allSubs.add(_Sub(ws, subId, filter));
-              // replay stored events like real relays do
-              for (final ev in _stored) {
-                if (_matches(filter, ev)) {
-                  ws.add(jsonEncode(['EVENT', subId, ev]));
+      ws.listen(
+        (raw) {
+          dynamic msg;
+          try {
+            msg = jsonDecode(raw.toString());
+          } catch (_) {
+            return;
+          }
+          if (msg is! List || msg.isEmpty) return;
+          switch (msg[0]) {
+            case 'REQ':
+              final subId = msg[1] as String;
+              for (final f in msg.skip(2)) {
+                final filter = Map<String, dynamic>.from(f as Map);
+                _allSubs.add(_Sub(ws, subId, filter));
+                // replay stored events like real relays do
+                for (final ev in _stored) {
+                  if (_matches(filter, ev)) {
+                    ws.add(jsonEncode(['EVENT', subId, ev]));
+                  }
                 }
               }
-            }
-            ws.add(jsonEncode(['EOSE', subId]));
-          case 'EVENT':
-            final ev = msg[1];
-            if (ev is! Map) return;
-            _stored.add(Map<String, dynamic>.from(ev));
-            _allSubs.removeWhere((s) => s.socket.readyState != WebSocket.open);
-            for (final s in _allSubs.toList()) {
-              if (s.socket != ws && _matches(s.filter, ev)) {
-                s.socket.add(jsonEncode(['EVENT', s.subId, ev]));
+              ws.add(jsonEncode(['EOSE', subId]));
+            case 'EVENT':
+              final ev = msg[1];
+              if (ev is! Map) return;
+              _stored.add(Map<String, dynamic>.from(ev));
+              _allSubs.removeWhere(
+                (s) => s.socket.readyState != WebSocket.open,
+              );
+              for (final s in _allSubs.toList()) {
+                if (s.socket != ws && _matches(s.filter, ev)) {
+                  s.socket.add(jsonEncode(['EVENT', s.subId, ev]));
+                }
               }
-            }
-            ws.add(jsonEncode(['OK', ev['id'], '', true, '']));
-        }
-      }, onDone: () {
-        _allSubs.removeWhere((s) => s.socket == ws);
-      });
+              ws.add(jsonEncode(['OK', ev['id'], '', true, '']));
+          }
+        },
+        onDone: () {
+          _allSubs.removeWhere((s) => s.socket == ws);
+        },
+      );
     });
   }
 

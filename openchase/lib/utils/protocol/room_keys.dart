@@ -33,9 +33,6 @@ class RoomKeys {
     // Ambiguous glyphs (O/0, I/1) excluded is cosmetic here: alphabet-only
     // keeps the existing 4-letter UX intact.
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    return List.generate(
-      4,
-      (_) => chars[_rnd.nextInt(chars.length)],
-    ).join();
+    return List.generate(4, (_) => chars[_rnd.nextInt(chars.length)]).join();
   }
 }

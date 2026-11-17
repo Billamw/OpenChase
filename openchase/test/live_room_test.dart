@@ -74,7 +74,9 @@ void main() {
         radiusM: 750,
         durationSec: 120,
         hiders: [player.selfPubkey],
-        items: [[50.941, 6.961]],
+        items: [
+          [50.941, 6.961],
+        ],
       );
       await _wait(() => seenRound != null, 20, 'player saw round_start');
       expect(seenRound!.radiusM, 750);
@@ -139,7 +141,8 @@ void main() {
       expect(host.isHider(player.selfPubkey), isTrue);
       player.sendCaught();
       await _wait(
-        () => host.isCaught(player.selfPubkey) &&
+        () =>
+            host.isCaught(player.selfPubkey) &&
             player.isCaught(player.selfPubkey),
         15,
         'catch acknowledged on both sides',
@@ -152,7 +155,27 @@ void main() {
       expect(player.winner, 'chasers');
       expect(host.winner, 'chasers');
       expect(player.phasePlaying, isFalse);
-      expect(player.endsAt > DateTime.now().millisecondsSinceEpoch ~/ 1000, isTrue);
+      expect(
+        player.endsAt > DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        isTrue,
+      );
+
+      // Trails: location events carry the sender's downsampled route so
+      // every client can draw every player's path after the round.
+      host.sendLocation(50.94, 6.96);
+      await Future.delayed(const Duration(milliseconds: 2300));
+      host.sendLocation(50.941, 6.961);
+      await Future.delayed(const Duration(milliseconds: 2300));
+      host.sendLocation(50.942, 6.962);
+      await _wait(
+        () => player.trailOf(host.selfPubkey).length >= 2,
+        15,
+        'host trail (2+ samples) reaches player',
+      );
+      final hTrail = player.trailOf(host.selfPubkey);
+      for (final pt in hTrail) {
+        expect(pt[0], inInclusiveRange(50.9, 50.96));
+      }
 
       host.close();
       player.close();

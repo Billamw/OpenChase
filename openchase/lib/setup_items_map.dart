@@ -51,7 +51,7 @@ class _ItemsTestState extends State<ItemsTest> {
     final roster = GameManager.roomClient?.playerPubkeys.length ?? 0;
     if (!_hiderSel.contains(pk) && _hiderSel.length >= _maxHiders(roster)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hiders must stay fewer than chasers')),
+        SnackBar(content: Text('Hiders must stay fewer than chasers')),
       );
       return;
     }
@@ -192,29 +192,14 @@ class _ItemsTestState extends State<ItemsTest> {
                         DropdownButton<int>(
                           value: _durationMin,
                           items: const [
-                            DropdownMenuItem(
-                              value: 15,
-                              child: Text('15 min'),
-                            ),
-                            DropdownMenuItem(
-                              value: 30,
-                              child: Text('30 min'),
-                            ),
-                            DropdownMenuItem(
-                              value: 45,
-                              child: Text('45 min'),
-                            ),
-                            DropdownMenuItem(
-                              value: 60,
-                              child: Text('60 min'),
-                            ),
-                            DropdownMenuItem(
-                              value: 90,
-                              child: Text('90 min'),
-                            ),
+                            DropdownMenuItem(value: 15, child: Text('15 min')),
+                            DropdownMenuItem(value: 30, child: Text('30 min')),
+                            DropdownMenuItem(value: 45, child: Text('45 min')),
+                            DropdownMenuItem(value: 60, child: Text('60 min')),
+                            DropdownMenuItem(value: 90, child: Text('90 min')),
                           ],
-                          onChanged: (v) =>
-                              setState(() => _durationMin = v ?? 30),
+                          onChanged:
+                              (v) => setState(() => _durationMin = v ?? 30),
                         ),
                       ],
                     ),
@@ -233,15 +218,15 @@ class _ItemsTestState extends State<ItemsTest> {
                           children: [
                             for (final entry
                                 in GameManager
-                                    .roomClient
-                                    ?.playerPubkeys
-                                    .entries ??
-                                <MapEntry<String, String>>[])
+                                        .roomClient
+                                        ?.playerPubkeys
+                                        .entries ??
+                                    <MapEntry<String, String>>[])
                               ChoiceChip(
                                 label: Text(entry.value),
                                 selected: _hiderSel.contains(entry.key),
-                                onSelected: (selected) =>
-                                    _toggleHider(entry.key),
+                                onSelected:
+                                    (selected) => _toggleHider(entry.key),
                               ),
                             ActionChip(
                               label: const Text('Random'),
@@ -260,12 +245,11 @@ class _ItemsTestState extends State<ItemsTest> {
                         // Host publishes the round: area + placed items go out
                         // over the room channel; players auto-navigate.
                         final client = GameManager.roomClient;
-                        final rosterSize =
-                            client?.playerPubkeys.length ?? 0;
+                        final rosterSize = client?.playerPubkeys.length ?? 0;
                         if (_hiderSel.isEmpty ||
                             _hiderSel.length > _maxHiders(rosterSize)) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
                                 'Pick 1-${_maxHiders(rosterSize)} hiders (or press Random)',
                               ),

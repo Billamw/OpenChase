@@ -15,7 +15,8 @@ class CircleGenerator {
       double angleRad = angle * pi / 180.0;
 
       double newLat = lat + (radiusInDegrees * cos(angleRad));
-      double newLon = lon + (radiusInDegrees * sin(angleRad) / cos(lat * pi / 180.0));
+      double newLon =
+          lon + (radiusInDegrees * sin(angleRad) / cos(lat * pi / 180.0));
 
       circlePoints.add(LatLng(newLat, newLon));
     }

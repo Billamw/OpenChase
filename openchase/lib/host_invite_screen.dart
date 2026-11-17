@@ -168,18 +168,21 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
                   ),
                   ElevatedButton(
                     child: const Text('Start'),
-                    onPressed: _players.isEmpty || _client == null
-                        ? null
-                        : () {
-                            dev.log(
-                              "Host proceeds to area setup",
-                              name: "log.HostInvite.start",
-                            );
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => SetupPage()),
-                            );
-                          },
+                    onPressed:
+                        _players.isEmpty || _client == null
+                            ? null
+                            : () {
+                              dev.log(
+                                "Host proceeds to area setup",
+                                name: "log.HostInvite.start",
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SetupPage(),
+                                ),
+                              );
+                            },
                   ),
                 ],
               ),

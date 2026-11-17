@@ -7,10 +7,7 @@ import 'package:openchase/utils/protocol/room_keys.dart';
 import 'package:openchase/utils/protocol/room_models.dart';
 import 'package:openchase/utils/protocol/room_transport.dart';
 
-const defaultRelays = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
-];
+const defaultRelays = ['wss://relay.damus.io', 'wss://nos.lol'];
 
 /// One websocket client per device: lobby + game channel share the connection.
 /// Host mode maintains the authoritative roster and rebroadcasts it (roster
@@ -26,11 +23,13 @@ class RoomClient {
   // lobby screens.
   void Function() onRosterChanged;
   void Function(RoundStartData round)? onRoundStart;
+  void Function(String winner)? onRoundEnd;
   void Function(String pubkey, LocationData loc)? onLocation;
 
   late final RoomTransport _transport;
   final Map<String, PlayerEntry> _roster = {};
   final Map<String, LocationData> _lastLocations = {};
+  final Map<String, List<List<double>>> _lastTrails = {};
   final Set<String> _seenJoins = {};
   int _rosterSeq = 0;
   String _hostName = '';
@@ -44,6 +43,8 @@ class RoomClient {
   final Map<String, String> _itemCollectors = {}; // itemId -> grabber pubkey
   final Set<String> _hitsSent = {};
   static const pickupRadiusM = 30;
+  static const trailSampleEveryMs = 2000;
+  static const trailMaxSamples = 30;
 
   // Round/role state for the live round.
   final Set<String> _hiders = {};
@@ -51,6 +52,9 @@ class RoomClient {
   int _endsAt = 0;
   String? _winner;
   Timer? _hostEndTimer;
+  Timer? _trailTimer;
+  List<List<double>> _trail = const [];
+  int _lastTrailSampleMs = 0;
 
   // Lobby bookkeeping for joiners
   final List<Map<String, dynamic>> _roomInits = [];
@@ -61,6 +65,7 @@ class RoomClient {
     required String playerName,
     required this.onRosterChanged,
     this.onRoundStart,
+    this.onRoundEnd,
     this.onLocation,
     this.relays = defaultRelays,
   }) : playerKeys = RoomKeys.generatePlayerKeychain() {
@@ -68,7 +73,10 @@ class RoomClient {
     _roomCode = roomKeys.code;
     _transport = RoomTransport(relays: relays, onEvent: _handle);
     _transport.subscribe('room', [
-      {'authors': [roomKeys.roomPubkey], 'since': _sinceWindow(600)},
+      {
+        'authors': [roomKeys.roomPubkey],
+        'since': _sinceWindow(600),
+      },
     ]);
     if (host) {
       _transport.subscribe('join', [
@@ -83,18 +91,23 @@ class RoomClient {
         },
       ]);
       _transport.subscribe('loc', [
-        {'kinds': [RoomKinds.location], 'since': _sinceWindow(300)},
+        {
+          'kinds': [RoomKinds.location],
+          'since': _sinceWindow(300),
+        },
       ]);
     } else {
       _transport.subscribe('loc', [
-        {'kinds': [RoomKinds.location], 'since': _sinceWindow(120)},
+        {
+          'kinds': [RoomKinds.location],
+          'since': _sinceWindow(120),
+        },
       ]);
     }
     _transport.connect();
   }
 
-  int _sinceWindow(int seconds) =>
-      currentUnixTimestampSeconds() - seconds;
+  int _sinceWindow(int seconds) => currentUnixTimestampSeconds() - seconds;
 
   // ── public surface ────────────────────────────────────────────────
 
@@ -171,6 +184,11 @@ class RoomClient {
 
   /// Any: publish own location. Caller throttles (≤1 Hz).
   void sendLocation(double lat, double lng, {double? accuracy}) {
+    _lastLocations[playerKeys.public] = LocationData(
+      lat: lat,
+      lng: lng,
+      ts: currentUnixTimestampSeconds(),
+    );
     _publish(
       RoomKinds.location,
       playerKeys.private,
@@ -179,6 +197,7 @@ class RoomClient {
         'lng': lng,
         if (accuracy != null) 'acc': accuracy.round(),
         'roundId': _roundId,
+        'trail': _trail,
       }),
     );
     if (_roster.containsKey(playerKeys.public)) {
@@ -290,10 +309,11 @@ class RoomClient {
   /// stale entries. Stale = no join/location proof within [ttlSeconds].
   void tick({int ttlSeconds = 60}) {
     final now = currentUnixTimestampSeconds();
-    final stale = _roster.entries
-        .where((e) => now - e.value.lastSeen > ttlSeconds)
-        .map((e) => e.key)
-        .toList();
+    final stale =
+        _roster.entries
+            .where((e) => now - e.value.lastSeen > ttlSeconds)
+            .map((e) => e.key)
+            .toList();
     var changed = false;
     for (final pk in stale) {
       _roster.remove(pk);
@@ -306,6 +326,7 @@ class RoomClient {
 
   void close() {
     _hostEndTimer?.cancel();
+    _trailTimer?.cancel();
     _transport.close();
   }
 
@@ -398,6 +419,7 @@ class RoomClient {
       case RoomMsg.roundEnd:
         if (e.data['roundId']?.toString() != _roundId) return;
         _phasePlaying = false;
+        onRoundEnd?.call(_winner ?? '');
         final w = e.data['winner']?.toString();
         if (w != null) _winner = w;
       case RoomMsg.hiderCaught:
@@ -448,8 +470,39 @@ class RoomClient {
       ..addAll(round.hiders);
     _caught.clear();
     _winner = null;
+    _trail = const [];
+    _startTrailSampler();
     onRoundStart?.call(round);
   }
+
+  // ---- trails -------------------------------------------------------------
+
+  void _startTrailSampler() {
+    _trailTimer?.cancel();
+    _lastTrailSampleMs = 0;
+    _trailTimer = Timer.periodic(
+      const Duration(milliseconds: trailSampleEveryMs),
+      (_) {
+        final last = _lastLocations[selfPubkey];
+        if (last == null) return;
+        if (_trail.isEmpty ||
+            _trail.last[0] != last.lat ||
+            _trail.last[1] != last.lng) {
+          final keep = trailMaxSamples - 1;
+          _trail = [
+            ...(_trail.length > keep
+                ? _trail.sublist(_trail.length - keep)
+                : _trail),
+            [last.lat, last.lng],
+          ];
+        }
+      },
+    );
+  }
+
+  /// Downsampled trail for a player: ours, or the last one they reported.
+  List<List<double>> trailOf(String pubkey) =>
+      pubkey == selfPubkey ? _trail : (_lastTrails[pubkey] ?? const []);
 
   void _handleJoinLeave(RoomEvent e) {
     // kinds 20002/20003 are relay-global — only accept traffic for our code.
@@ -483,11 +536,7 @@ class RoomClient {
         _publish(
           RoomKinds.itemHit,
           playerKeys.private,
-          jsonEncode({
-            'itemId': it.id,
-            'code': _roomCode,
-            'roundId': _roundId,
-          }),
+          jsonEncode({'itemId': it.id, 'code': _roomCode, 'roundId': _roundId}),
         );
       }
     }
@@ -527,6 +576,17 @@ class RoomClient {
     final prev = _lastLocations[e.pubkey];
     if (prev != null && prev.ts >= loc.ts) return; // out-of-order
     _lastLocations[e.pubkey] = loc;
+    final trailData = e.data['trail'];
+    if (trailData is List) {
+      _lastTrails[e.pubkey] =
+          trailData
+              .whereType<List>()
+              .where((p2) => p2.length >= 2)
+              .map<List<double>>(
+                (p2) => <double>[p2[0].toDouble(), p2[1].toDouble()],
+              )
+              .toList();
+    }
     if (_roster[e.pubkey]!.lastSeen < loc.ts) {
       _roster[e.pubkey] = PlayerEntry(
         e.pubkey,

@@ -109,11 +109,7 @@ void main() {
     });
 
     test('malformed content still parses with empty data', () {
-      final ev = fakeEvent(
-        pubkey: 'bb' * 32,
-        kind: 9999,
-        content: {},
-      );
+      final ev = fakeEvent(pubkey: 'bb' * 32, kind: 9999, content: {});
       ev['content'] = 'garbage not json';
       final e = RoomEvent.tryParse(jsonEncode(['EVENT', 's', ev]))!;
       expect(e.data, isEmpty);
@@ -144,51 +140,60 @@ void main() {
 
   group('payload models', () {
     test('RoundStartData parses valid payload, rejects bad center', () {
-      final good = RoomEvent.tryParse(jsonEncode([
-        'EVENT',
-        's',
-        fakeEvent(
-          pubkey: 'cc' * 32,
-          kind: RoomKinds.room,
-          content: {
-            'msg': RoomMsg.roundStart,
-            'roundId': 'r1',
-            'center': [50.9, 6.9],
-            'radius': 500,
-            'items': [
-              [50.91, 6.91],
-            ],
-          },
-        ),
-      ]))!;
+      final good =
+          RoomEvent.tryParse(
+            jsonEncode([
+              'EVENT',
+              's',
+              fakeEvent(
+                pubkey: 'cc' * 32,
+                kind: RoomKinds.room,
+                content: {
+                  'msg': RoomMsg.roundStart,
+                  'roundId': 'r1',
+                  'center': [50.9, 6.9],
+                  'radius': 500,
+                  'items': [
+                    [50.91, 6.91],
+                  ],
+                },
+              ),
+            ]),
+          )!;
       final round = RoundStartData.from(good)!;
       expect(round.roundId, 'r1');
       expect(round.centerLat, 50.9);
       expect(round.radiusM, 500);
       expect(round.items.length, 1);
 
-      final bad = RoomEvent.tryParse(jsonEncode([
-        'EVENT',
-        's',
-        fakeEvent(
-          pubkey: 'cc' * 32,
-          kind: RoomKinds.room,
-          content: {'msg': RoomMsg.roundStart, 'center': 'nope'},
-        ),
-      ]))!;
+      final bad =
+          RoomEvent.tryParse(
+            jsonEncode([
+              'EVENT',
+              's',
+              fakeEvent(
+                pubkey: 'cc' * 32,
+                kind: RoomKinds.room,
+                content: {'msg': RoomMsg.roundStart, 'center': 'nope'},
+              ),
+            ]),
+          )!;
       expect(RoundStartData.from(bad), isNull);
     });
 
     test('LocationData parses accuracy optionality', () {
-      final e = RoomEvent.tryParse(jsonEncode([
-        'EVENT',
-        's',
-        fakeEvent(
-          pubkey: 'dd' * 32,
-          kind: RoomKinds.location,
-          content: {'lat': 1.5, 'lng': 2.5},
-        ),
-      ]))!;
+      final e =
+          RoomEvent.tryParse(
+            jsonEncode([
+              'EVENT',
+              's',
+              fakeEvent(
+                pubkey: 'dd' * 32,
+                kind: RoomKinds.location,
+                content: {'lat': 1.5, 'lng': 2.5},
+              ),
+            ]),
+          )!;
       final loc = LocationData.from(e)!;
       expect(loc.lat, 1.5);
       expect(loc.accuracy, isNull);

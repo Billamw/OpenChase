@@ -34,11 +34,11 @@ class Player {
     shownPositionHistory = positionHistory;
   }
 
-void setTrailVisibility(bool visible) {
-  trailVisible = visible;
-}
+  void setTrailVisibility(bool visible) {
+    trailVisible = visible;
+  }
 
-void setVisibility (bool visible) {
-  this.visible = visible;
-}
+  void setVisibility(bool visible) {
+    this.visible = visible;
+  }
 }

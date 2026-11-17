@@ -77,7 +77,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   String _roundOverLabel() {
     final c = _client;
-    final tally = '${c!.caughtHiders.length}/${c.hiderPubkeys.length} hiders caught';
+    final tally =
+        '${c!.caughtHiders.length}/${c.hiderPubkeys.length} hiders caught';
     switch (c.winner) {
       case 'chasers':
         return 'Chasers win! $tally';
@@ -222,6 +223,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // After the round: draw every player's walked route from the trails
+    // their location events carried (works for late joiners too).
+    if (_client != null && !_roundActive) {
+      for (final entry in _playersByPubkey.entries) {
+        entry.value.shownPositionHistory =
+            _client!.trailOf(entry.key).map((p) => LatLng(p[0], p[1])).toList();
+      }
+    }
     // Markers: own always; other players hidden during the round —
     // revealed when it ends.
     final players =
@@ -241,12 +250,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             IconButton(
               tooltip: 'End round now',
               icon: Icon(Icons.stop_circle_outlined),
-              onPressed: () => _client!.publishRoundEnd(
-                _client!.caughtHiders.length >= _client!.hiderPubkeys.length &&
-                        _client!.hiderPubkeys.isNotEmpty
-                    ? 'chasers'
-                    : 'hiders',
-              ),
+              onPressed:
+                  () => _client!.publishRoundEnd(
+                    _client!.caughtHiders.length >=
+                                _client!.hiderPubkeys.length &&
+                            _client!.hiderPubkeys.isNotEmpty
+                        ? 'chasers'
+                        : 'hiders',
+                  ),
             ),
           if (_client != null && _client!.host && !_roundActive)
             TextButton(
@@ -319,22 +330,25 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 // Trails — recorded live, but only drawn once the round is
                 // over (live trails would expose the hiders). Filter chips
                 // in the bottom bar toggle each player's trail.
-                ..._playersByPubkey.entries.where(
-                  (e) => !_roundActive && !_trailHidden.contains(e.key),
-                ).map((entry) {
-                  final player = entry.value;
-                  return PolylineLayer(
-                    polylines: [
-                      if (player.shownPositionHistory.length > 1 &&
-                          player.trailVisible)
-                        Polyline(
-                          points: player.shownPositionHistory,
-                          strokeWidth: 5.0,
-                          color: player.color,
-                        ),
-                    ],
-                  );
-                }).toList(),
+                ..._playersByPubkey.entries
+                    .where(
+                      (e) => !_roundActive && !_trailHidden.contains(e.key),
+                    )
+                    .map((entry) {
+                      final player = entry.value;
+                      return PolylineLayer(
+                        polylines: [
+                          if (player.shownPositionHistory.length > 1 &&
+                              player.trailVisible)
+                            Polyline(
+                              points: player.shownPositionHistory,
+                              strokeWidth: 5.0,
+                              color: player.color,
+                            ),
+                        ],
+                      );
+                    })
+                    .toList(),
                 // Player markers
                 MarkerLayer(
                   markers:
@@ -403,8 +417,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 // item-effect wiring, not shown).
                 MarkerLayer(
                   markers:
-                      (GameManager.roomClient?.roundItems ??
-                              const <ItemData>[])
+                      (GameManager.roomClient?.roundItems ?? const <ItemData>[])
                           .where(
                             (it) =>
                                 GameManager.roomClient?.collectorOf(it.id) ==
@@ -485,21 +498,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   _client!.isHider(_client!.selfPubkey) &&
                   !_client!.isCaught(_client!.selfPubkey))
               ? FloatingActionButton.extended(
-                  backgroundColor: Colors.red,
-                  onPressed: () => _client!.sendCaught(),
-                  icon: Icon(Icons.flag),
-                  label: Text("I'm caught!"),
-                )
+                backgroundColor: Colors.red,
+                onPressed: () => _client!.sendCaught(),
+                icon: Icon(Icons.flag),
+                label: Text("I'm caught!"),
+              )
               : FloatingActionButton(
-                  onPressed: () {
-                    setState(() {
-                      _followUser = true;
-                    });
-                    _animatedMapMove(_currentPosition, null);
-                    _rotateMapBackToNorth();
-                  },
-                  child: Icon(Icons.my_location),
-                ),
+                onPressed: () {
+                  setState(() {
+                    _followUser = true;
+                  });
+                  _animatedMapMove(_currentPosition, null);
+                  _rotateMapBackToNorth();
+                },
+                child: Icon(Icons.my_location),
+              ),
       bottomNavigationBar: BottomAppBar(
         color: Colors.blueGrey[900],
         shape: CircularNotchedRectangle(),

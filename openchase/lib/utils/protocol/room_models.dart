@@ -3,7 +3,8 @@ import 'dart:math';
 
 /// Room-protocol event kinds (regular nostr range).
 class RoomKinds {
-  static const room = 20001; // authored by room key: announcement / roster / round lifecycle
+  static const room =
+      20001; // authored by room key: announcement / roster / round lifecycle
   static const join = 20002; // authored by player session key: join request
   static const leave = 20003; // authored by player session key
   static const itemHit = 20004; // authored by player session key: pickup claim
@@ -28,8 +29,10 @@ class RoomEvent {
   final int createdAt;
   final int kind;
   final Map<String, dynamic> data;
+
   /// True when this event was authored by our room key (host identity).
   bool fromRoomKey = false;
+
   /// True when authored by our player session key.
   bool fromSelf = false;
 
@@ -88,7 +91,9 @@ class RoomEvent {
       try {
         final parsed = jsonDecode(content);
         if (parsed is Map<String, dynamic>) data = parsed;
-      } catch (_) {/* foreign event — keep identity, empty payload */}
+      } catch (_) {
+        /* foreign event — keep identity, empty payload */
+      }
     }
     return RoomEvent(
       id: id,
@@ -103,7 +108,8 @@ class RoomEvent {
 class PlayerEntry {
   final String pubkey;
   final String name;
-  final int lastSeen; // unix seconds of last proof-of-life (join/heartbeat/location)
+  final int
+  lastSeen; // unix seconds of last proof-of-life (join/heartbeat/location)
 
   PlayerEntry(this.pubkey, this.name, this.lastSeen);
 
@@ -116,7 +122,12 @@ class LocationData {
   final double? accuracy;
   final int ts;
 
-  LocationData({required this.lat, required this.lng, this.accuracy, required this.ts});
+  LocationData({
+    required this.lat,
+    required this.lng,
+    this.accuracy,
+    required this.ts,
+  });
 
   static LocationData? from(RoomEvent e) {
     final lat = e.data['lat'], lng = e.data['lng'];
@@ -161,11 +172,12 @@ class RoundStartData {
       radiusM: radius.toInt(),
       items: ItemData.parseList(e.data['items']),
       endsAt: e.data['endsAt'] is num ? (e.data['endsAt'] as num).toInt() : 0,
-      hiders: (e.data['hiders'] is List)
-          ? (e.data['hiders'] as List)
-              .whereType<String>()
-              .toList(growable: false)
-          : const [],
+      hiders:
+          (e.data['hiders'] is List)
+              ? (e.data['hiders'] as List).whereType<String>().toList(
+                growable: false,
+              )
+              : const [],
     );
   }
 }
@@ -221,7 +233,12 @@ class ItemData {
     return out;
   }
 
-  Map<String, dynamic> toJson() => {'id': id, 'type': type, 'lat': lat, 'lng': lng};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'lat': lat,
+    'lng': lng,
+  };
 }
 
 /// Great-circle distance in metres.

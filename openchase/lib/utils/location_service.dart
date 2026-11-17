@@ -1,10 +1,14 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 class GeolocatorService {
-  LatLng _currentPosition = LatLng(51.1657, 10.4515); // Standardposition (z. B. Deutschland)
+  LatLng _currentPosition = LatLng(
+    51.1657,
+    10.4515,
+  ); // Standardposition (z. B. Deutschland)
   Timer? _locationUpdateTimer;
 
   static final GeolocatorService _instance = GeolocatorService._internal();
@@ -51,7 +55,9 @@ class GeolocatorService {
         print("Fehler beim Abrufen des Standorts: $e");
       }
     } else {
-      print("Nicht-Mobile-Plattform erkannt – Standardposition wird verwendet.");
+      print(
+        "Nicht-Mobile-Plattform erkannt – Standardposition wird verwendet.",
+      );
     }
     return _currentPosition;
   }
