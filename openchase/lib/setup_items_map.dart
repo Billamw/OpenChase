@@ -83,16 +83,42 @@ class _ItemsTestState extends State<ItemsTest> {
     String overpassUrl =
         "https://overpass-api.de/api/interpreter?data=[out:json];way(around:$radius,$lat,$lng)['highway'~'footway|path|pedestrian|cycleway|residential|tertiary|primary|secondary']['foot'!='no']['access'!='private'];(._;>;);out;";
 
+    List<LatLng> wayPoints = const [];
     try {
       final response = await http.get(Uri.parse(overpassUrl));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        List<LatLng> wayPoints = _parseWays(data);
-        _generateRandomMarkers(wayPoints);
+        wayPoints = _parseWays(data);
+      } else {
+        print("Overpass HTTP ${response.statusCode} - using random in-area items");
       }
     } catch (e) {
       print("Fehler beim Laden der Wege: $e");
     }
+    if (!mounted) return;
+    // Never leave the host stuck on a spinner: fall back to synthetic
+    // positions inside the play area when Overpass fails or has no ways.
+    if (wayPoints.isEmpty) {
+      wayPoints = _randomPointsInArea(widget.itemCount * 20);
+    }
+    _generateRandomMarkers(wayPoints);
+  }
+
+  List<LatLng> _randomPointsInArea(int n) {
+    final rnd = Random();
+    final r = widget.playareaRadius / 111320.0; // degrees approx
+    final pts = <LatLng>[];
+    for (var i = 0; i < n; i++) {
+      final rr = r * 0.15 + r * 0.8 * rnd.nextDouble();
+      final th = 2 * 3.141592653589793 * rnd.nextDouble();
+      pts.add(
+        LatLng(
+          widget.playAreaCenter.latitude + rr * cos(th),
+          widget.playAreaCenter.longitude + rr * sin(th) / 0.63,
+        ),
+      );
+    }
+    return pts;
   }
 
   List<LatLng> _parseWays(dynamic data) {
@@ -124,7 +150,9 @@ class _ItemsTestState extends State<ItemsTest> {
     Set<LatLng> selectedMarkers = {};
     final Distance distance = Distance();
 
-    while (selectedMarkers.length < widget.itemCount) {
+    var attempts = 0;
+    while (selectedMarkers.length < widget.itemCount &&
+        attempts++ < widget.itemCount * 60) {
       int index = random.nextInt(wayPoints.length);
       LatLng candidate = wayPoints[index];
 
@@ -137,6 +165,7 @@ class _ItemsTestState extends State<ItemsTest> {
 
     setState(() {
       _markerPositions = selectedMarkers.toList();
+      _isLoading = false;
       _dragMarkers =
           _markerPositions.map((pos) {
             return DragMarker(
