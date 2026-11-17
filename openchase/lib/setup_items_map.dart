@@ -162,7 +162,11 @@ class _ItemsTestState extends State<ItemsTest> {
                           items:
                               _markerPositions
                                   .map(
-                                    (p) => [p.latitude, p.longitude],
+                                    (p) => {
+                                      'type': 'item',
+                                      'lat': p.latitude,
+                                      'lng': p.longitude,
+                                    },
                                   )
                                   .toList(),
                         );

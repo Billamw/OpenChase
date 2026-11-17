@@ -39,6 +39,12 @@ class RoomClient {
   String _roundId = '';
   RoundStartData? _lastRoundStart;
 
+  // Item pickup bookkeeping for the current round.
+  Map<String, ItemData> _roundItems = {};
+  final Map<String, String> _itemCollectors = {}; // itemId -> grabber pubkey
+  final Set<String> _hitsSent = {};
+  static const pickupRadiusM = 30;
+
   // Lobby bookkeeping for joiners
   final List<Map<String, dynamic>> _roomInits = [];
 
@@ -59,7 +65,10 @@ class RoomClient {
     ]);
     if (host) {
       _transport.subscribe('join', [
-        {'kinds': [RoomKinds.join, RoomKinds.leave], 'since': _sinceWindow(600)},
+        {
+          'kinds': [RoomKinds.join, RoomKinds.leave, RoomKinds.itemHit],
+          'since': _sinceWindow(600),
+        },
       ]);
       _transport.subscribe('loc', [
         {'kinds': [RoomKinds.location], 'since': _sinceWindow(300)},
@@ -87,6 +96,9 @@ class RoomClient {
   Map<String, LocationData> get lastLocations =>
       Map.unmodifiable(_lastLocations);
   RoundStartData? get lastRoundStart => _lastRoundStart;
+  List<ItemData> get roundItems => _roundItems.values.toList(growable: false);
+  String? collectorOf(String itemId) => _itemCollectors[itemId];
+  void Function(String itemId, String by)? onItemCollected;
   String get selfPubkey => playerKeys.public;
   int get readyRelays => _transport.readyRelays;
   String get hostName => _hostName;
@@ -167,6 +179,7 @@ class RoomClient {
     List<dynamic> items = const [],
   }) {
     final roundId = _newRoundId();
+    final normItems = ItemData.parseList(items);
     _rosterHeartbeat();
     _publish(
       RoomKinds.room,
@@ -176,7 +189,7 @@ class RoomClient {
         'roundId': roundId,
         'center': center,
         'radius': radiusM,
-        'items': items,
+        'items': normItems.map((it) => it.toJson()).toList(),
         'roster': _rosterJson(),
         'seq': ++_rosterSeq,
       }),
@@ -187,7 +200,7 @@ class RoomClient {
         centerLat: center[0],
         centerLng: center[1],
         radiusM: radiusM,
-        items: items,
+        items: normItems,
       ),
     );
   }
@@ -275,6 +288,8 @@ class RoomClient {
       case RoomKinds.join:
       case RoomKinds.leave:
         if (host) _handleJoinLeave(e);
+      case RoomKinds.itemHit:
+        if (host) _handleItemHit(e);
       case RoomKinds.location:
         _handleLocation(e);
     }
@@ -296,6 +311,13 @@ class RoomClient {
         _applyRoundStart(round);
       case RoomMsg.roundEnd:
         _phasePlaying = false;
+      case RoomMsg.itemCollected:
+        final itemId = e.data['itemId']?.toString();
+        final by = e.data['by']?.toString();
+        if (itemId == null || by == null) return;
+        if (_itemCollectors.putIfAbsent(itemId, () => by) == by) {
+          onItemCollected?.call(itemId, by);
+        }
     }
   }
 
@@ -323,6 +345,9 @@ class RoomClient {
     _roundId = round.roundId;
     _phasePlaying = true;
     _lastRoundStart = round;
+    _roundItems = {for (final it in round.items) it.id: it};
+    _itemCollectors.clear();
+    _hitsSent.clear();
     onRoundStart?.call(round);
   }
 
@@ -343,6 +368,55 @@ class RoomClient {
         onRosterChanged();
       }
     }
+  }
+
+  /// Call with own fresh position each update: claims uncollected items we
+  /// are within [pickupRadiusM] of. One itemHit per item per round per player;
+  /// host validates against its location stream and broadcasts the result.
+  void checkItemPickups(double lat, double lng) {
+    for (final it in _roundItems.values) {
+      if (_itemCollectors.containsKey(it.id) || _hitsSent.contains(it.id)) {
+        continue;
+      }
+      if (distanceMeters(lat, lng, it.lat, it.lng) <= pickupRadiusM) {
+        _hitsSent.add(it.id);
+        _publish(
+          RoomKinds.itemHit,
+          playerKeys.private,
+          jsonEncode({
+            'itemId': it.id,
+            'code': _roomCode,
+            'roundId': _roundId,
+          }),
+        );
+      }
+    }
+  }
+
+  void _handleItemHit(RoomEvent e) {
+    // kinds 20004 is relay-global — only accept traffic for our code.
+    if (e.data['code']?.toString() != _roomCode) return;
+    final itemId = e.data['itemId']?.toString();
+    if (itemId == null) return;
+    final item = _roundItems[itemId];
+    if (item == null || _itemCollectors.containsKey(itemId)) return;
+    final loc = _lastLocations[e.pubkey];
+    if (loc == null) return;
+    // Stream lag slack: claim radius 2x our pickup radius.
+    if (distanceMeters(loc.lat, loc.lng, item.lat, item.lng) >
+        pickupRadiusM * 2) {
+      return; // too far from our last-known position of this player
+    }
+    _publish(
+      RoomKinds.room,
+      roomKeys.roomPrivkey,
+      jsonEncode({
+        'msg': RoomMsg.itemCollected,
+        'code': _roomCode,
+        'itemId': itemId,
+        'by': e.pubkey,
+      }),
+    );
   }
 
   void _handleLocation(RoomEvent e) {

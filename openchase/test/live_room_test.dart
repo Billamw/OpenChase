@@ -100,6 +100,32 @@ void main() {
         reason: 'player never got host location (got: ${playerGotLoc.keys})',
       );
 
+      // Item pickup loop: player walks onto i0, claims it automatically,
+      // host validates against its stream, both sides converge on collected.
+      final item = seenRound!.items.first;
+      expect(item.id, 'i0');
+      expect(item.type, 'item');
+      await Future.delayed(const Duration(milliseconds: 1100)); // fresh ts
+      player.sendLocation(item.lat, item.lng);
+      await _wait(
+        () => host.lastLocations[player.selfPubkey]?.lat == item.lat,
+        15,
+        'host sees player standing on the item',
+      );
+      player.checkItemPickups(item.lat, item.lng);
+      await _wait(
+        () => player.collectorOf('i0') != null,
+        15,
+        'player sees i0 collected',
+      );
+      expect(player.collectorOf('i0'), player.selfPubkey);
+      expect(host.collectorOf('i0'), player.selfPubkey);
+      // Collected item is not claimable again.
+      player.checkItemPickups(item.lat, item.lng);
+      host.checkItemPickups(item.lat, item.lng);
+      await Future.delayed(const Duration(seconds: 1));
+      expect(host.collectorOf('i0'), player.selfPubkey);
+
       host.close();
       player.close();
     },

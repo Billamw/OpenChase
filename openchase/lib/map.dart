@@ -7,6 +7,7 @@ import 'package:openchase/utils/player.dart';
 import 'package:openchase/utils/circle_generator.dart';
 import 'package:openchase/utils/location_service.dart';
 import 'package:openchase/utils/game_manager.dart';
+import 'package:openchase/utils/protocol/room_models.dart';
 
 class MapScreen extends StatefulWidget {
   final List<Player> players;
@@ -134,6 +135,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       final client = GameManager.roomClient;
       final position = await geolocatorService.getCurrentLocation();
       client?.sendLocation(position.latitude, position.longitude);
+      client?.checkItemPickups(position.latitude, position.longitude);
       if (mounted) {
         setState(() {
           _currentPosition = position;
@@ -278,6 +280,32 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                           ),
                         );
                       }).toList(),
+                ),
+                // Item markers for the live round; collected items vanish
+                // (who grabbed it is kept in client state for future
+                // item-effect wiring, not shown).
+                MarkerLayer(
+                  markers:
+                      (GameManager.roomClient?.roundItems ??
+                              const <ItemData>[])
+                          .where(
+                            (it) =>
+                                GameManager.roomClient?.collectorOf(it.id) ==
+                                null,
+                          )
+                          .map(
+                            (it) => Marker(
+                              point: LatLng(it.lat, it.lng),
+                              width: 50,
+                              height: 50,
+                              child: Image.asset(
+                                'images/test-item.png',
+                                width: 44,
+                                height: 44,
+                              ),
+                            ),
+                          )
+                          .toList(),
                 ),
               ],
             ),

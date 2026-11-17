@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:math';
 
 /// Room-protocol event kinds (regular nostr range).
 class RoomKinds {
   static const room = 20001; // authored by room key: announcement / roster / round lifecycle
   static const join = 20002; // authored by player session key: join request
   static const leave = 20003; // authored by player session key
+  static const itemHit = 20004; // authored by player session key: pickup claim
   static const location = 20005; // authored by player session key, 1 Hz
 }
 
@@ -14,6 +16,7 @@ class RoomMsg {
   static const roster = 'roster';
   static const roundStart = 'round_start';
   static const roundEnd = 'round_end';
+  static const itemCollected = 'item_collected';
 }
 
 /// One parsed room event, relay-agnostic.
@@ -130,7 +133,7 @@ class RoundStartData {
   final double centerLat;
   final double centerLng;
   final int radiusM;
-  final List<dynamic> items;
+  final List<ItemData> items;
 
   RoundStartData({
     required this.roundId,
@@ -150,7 +153,73 @@ class RoundStartData {
       centerLat: (center[0] as num).toDouble(),
       centerLng: (center[1] as num).toDouble(),
       radiusM: radius.toInt(),
-      items: e.data['items'] is List ? e.data['items'] as List : const [],
+      items: ItemData.parseList(e.data['items']),
     );
   }
+}
+
+/// One placed item travelling with a round. Canonical wire form is
+/// `{id, type, lat, lng}`; legacy bare `[lat, lng]` pairs are accepted and
+/// get positional ids (i0, i1, …) with type "item".
+class ItemData {
+  final String id;
+  final String type;
+  final double lat;
+  final double lng;
+
+  ItemData({
+    required this.id,
+    required this.type,
+    required this.lat,
+    required this.lng,
+  });
+
+  static List<ItemData> parseList(dynamic raw) {
+    if (raw is! List) return const [];
+    final out = <ItemData>[];
+    for (var i = 0; i < raw.length; i++) {
+      final entry = raw[i];
+      if (entry is Map) {
+        final lat = entry['lat'];
+        final lng = entry['lng'];
+        if (lat is num && lng is num) {
+          out.add(
+            ItemData(
+              id: entry['id']?.toString() ?? 'i$i',
+              type: entry['type']?.toString() ?? 'item',
+              lat: lat.toDouble(),
+              lng: lng.toDouble(),
+            ),
+          );
+        }
+      } else if (entry is List &&
+          entry.length == 2 &&
+          entry[0] is num &&
+          entry[1] is num) {
+        out.add(
+          ItemData(
+            id: 'i$i',
+            type: 'item',
+            lat: (entry[0] as num).toDouble(),
+            lng: (entry[1] as num).toDouble(),
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  Map<String, dynamic> toJson() => {'id': id, 'type': type, 'lat': lat, 'lng': lng};
+}
+
+/// Great-circle distance in metres.
+double distanceMeters(double lat1, double lng1, double lat2, double lng2) {
+  const earthR = 6371000.0;
+  double rad(double d) => d * 3.141592653589793 / 180.0;
+  final dLat = rad(lat2 - lat1);
+  final dLng = rad(lng2 - lng1);
+  final a =
+      sin(dLat / 2) * sin(dLat / 2) +
+      cos(rad(lat1)) * cos(rad(lat2)) * sin(dLng / 2) * sin(dLng / 2);
+  return earthR * 2 * atan2(sqrt(a), sqrt(1 - a));
 }

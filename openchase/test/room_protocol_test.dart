@@ -58,6 +58,26 @@ void main() {
       expect(loc.lat, 1.0);
     });
 
+    test('parses items in map and pair form, legacy pairs get ids', () {
+      final items = ItemData.parseList([
+        {'id': 'x1', 'type': 'health', 'lat': 50.9, 'lng': 6.9},
+        [50.941, 6.961],
+      ]);
+      expect(items.length, 2);
+      expect(items[0].id, 'x1');
+      expect(items[0].type, 'health');
+      expect(items[1].id, 'i1');
+      expect(items[1].type, 'item');
+      expect(items[1].lat, 50.941);
+    });
+
+    test('distanceMeters is sane', () {
+      // ~157 m for 0.001 deg latitude
+      final d = distanceMeters(50.9, 6.9, 50.901, 6.9);
+      expect(d, closeTo(111.2, 1.0));
+      expect(distanceMeters(50.9, 6.9, 50.9, 6.9), 0);
+    });
+
     test('returns null for non-event frames', () {
       expect(RoomEvent.tryParse('["OK","x","id",true,""]'), isNull);
       expect(RoomEvent.tryParse('not json'), isNull);
