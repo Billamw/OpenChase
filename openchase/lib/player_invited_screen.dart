@@ -1,9 +1,10 @@
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:openchase/setup_playArea_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:openchase/map.dart';
 import 'package:openchase/utils/game_manager.dart';
-import 'package:openchase/utils/nostr/player_room_nostr.dart';
+import 'package:openchase/utils/protocol/room_client.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class PlayerInvitateScreen extends StatefulWidget {
@@ -14,52 +15,42 @@ class PlayerInvitateScreen extends StatefulWidget {
 }
 
 class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
-  late PlayerRoomNostr _roomNostr;
-  // ignore: prefer_final_fields
-  List _players = [GameManager.roomHost];
+  List<String> _players = [];
+
+  RoomClient? get _client => GameManager.roomClient;
 
   @override
   void initState() {
     super.initState();
-    // GameManager.players.add(GameManager.userName);
-
-    // ✅ Initialize ContinuousNostr and listen for messages
-    _roomNostr = PlayerRoomNostr(
-      onMessageReceived: (message) {
-        if (message.containsKey("joined")) {
-          GameManager.players.add(message["joined"]);
-          setState(() {
-            _players = GameManager.players;
-          });
-        }
-        if (message.containsKey("left")) {
-          GameManager.players.remove(message["left"]);
-          dev.log(
-            "Player left: ${message["left"]}",
-            name: "log.Test.PlayerLeft.listened",
-          );
-          setState(() {
-            _players = GameManager.players;
-          });
-        }
-        if (message.containsKey("gamePrivateKey")) {
-          GameManager.gamePublicKey = message["gamePublicKey"];
-          GameManager.gamePrivateKey = message["gamePrivateKey"];
-          dev.log("Game started", name: "log.Test.StartGame.listened");
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => SetupPage()),
-          );
-        }
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    GameManager.removeAllData();
-    _roomNostr.close(); // ✅ Close WebSocket when screen is closed
-    super.dispose();
+    final client = _client;
+    if (client == null) return;
+    _players = List.of(client.playerNames);
+    client.onRosterChanged = () {
+      if (!mounted) return;
+      setState(() {
+        _players = List.of(client.playerNames);
+      });
+    };
+    client.onRoundStart = (round) {
+      dev.log(
+        "Round started: center=${round.centerLat},${round.centerLng} r=${round.radiusM}",
+        name: "log.PlayerInvited.roundStart",
+      );
+      if (!mounted) return;
+      GameManager.roundCenter = LatLng(round.centerLat, round.centerLng);
+      GameManager.roundRadius = round.radiusM;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => MapScreen(
+                players: const [],
+                playAreaCenter: GameManager.roundCenter!,
+                playareaRadius: GameManager.roundRadius,
+              ),
+        ),
+      );
+    };
   }
 
   @override
@@ -87,7 +78,7 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      _roomNostr.leaveGameNostr();
+                      _client?.sendLeave();
                       GameManager.removeAllData(); // Cleanup before leaving
                       Navigator.of(context).pop(true); // Close dialog
                       Navigator.of(
@@ -103,15 +94,16 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
         );
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Room Created')),
+        appBar: AppBar(title: const Text('Room')),
         body: Padding(
           padding: UiHelper.getResponsivePadding(context),
           child: Column(
             children: [
-              // Display the generated code
               GestureDetector(
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: GameManager.roomCode));
+                  Clipboard.setData(
+                    ClipboardData(text: GameManager.roomCode),
+                  );
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Code copied to clipboard!")),
                   );
@@ -137,7 +129,6 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
 
               const SizedBox(height: 20),
 
-              // ✅ Display received messages
               Expanded(
                 child: ListView.builder(
                   itemCount: _players.length,
@@ -145,6 +136,14 @@ class _PlayerInvitateScreenState extends State<PlayerInvitateScreen> {
                     return ListTile(title: Text(_players[index]));
                   },
                 ),
+              ),
+
+              Text(
+                _client != null && _client!.readyRelays > 0
+                    ? 'Waiting for host to start the round…'
+                    : 'Connecting…',
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
               ),
             ],
           ),

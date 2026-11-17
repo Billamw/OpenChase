@@ -1,17 +1,16 @@
 // ignore_for_file: use_build_context_synchronously
-import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:openchase/player_invited_screen.dart';
-import 'package:openchase/utils/nostr/initial_nostr.dart';
 import 'package:openchase/utils/game_manager.dart';
+import 'package:openchase/utils/protocol/room_client.dart';
+import 'package:openchase/utils/protocol/room_keys.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class PlayerJoinScreen extends StatefulWidget {
   const PlayerJoinScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _PlayerJoinScreenState createState() => _PlayerJoinScreenState();
+  State<PlayerJoinScreen> createState() => _PlayerJoinScreenState();
 }
 
 class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
@@ -19,7 +18,6 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   final TextEditingController _codeController = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _codeFocus = FocusNode();
-  late InitialNostr _initialNostr;
 
   String? _nameError;
   String? _codeError;
@@ -32,36 +30,29 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _initialNostr = InitialNostr();
-  }
-
-  @override
   void dispose() {
     _nameController.dispose();
     _codeController.dispose();
     _nameFocus.dispose();
     _codeFocus.dispose();
-    _initialNostr.close(message: "playerJoin dispose");
     super.dispose();
   }
 
   Future<void> _joinRoom(BuildContext context) async {
-    // Clear previous errors
     _clearErrors();
 
     final name = _nameController.text.trim();
     final code = _codeController.text.trim().toUpperCase();
 
-    bool roomExists = await _initialNostr.requestInitialMessage(code);
-
     if (name.isEmpty) {
       setState(() => _nameError = "Name can't be empty");
       return;
     }
+    if (code.length != 4) {
+      setState(() => _codeError = "Room code is 4 letters");
+      return;
+    }
 
-    // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -78,31 +69,36 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
       },
     );
 
-    // Wait for a response (you might want to implement a timeout here)
-    await Future.delayed(Duration(seconds: 1));
+    final client = RoomClient(
+      host: false,
+      roomKeys: RoomKeys.fromCode(code),
+      playerName: name,
+      onRosterChanged: () {},
+    );
+    final hostName = await client.findRoom(const Duration(seconds: 4));
 
-    // Close loading indicator
-    Navigator.of(context).pop();
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // close loading dialog
 
-    if (roomExists) {
-      await _showJoinConfirmationDialog(context, code);
-    } else {
+    if (hostName == null) {
+      client.close();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Room not found")));
-      _initialNostr.close();
+      return;
     }
-  }
 
-  void _updateNostr() {
-    GameManager.userName = _nameController.text.trim();
-    GameManager.roomCode = _codeController.text.trim().toUpperCase();
-    _initialNostr.sendInitialJoinNostr();
+    GameManager.roomClient = client;
+    GameManager.roomCode = code;
+    GameManager.roomHost = hostName;
+    GameManager.userName = name;
+    await _showJoinConfirmationDialog(context, code, name);
   }
 
   Future<bool?> _showJoinConfirmationDialog(
     BuildContext context,
     String code,
+    String name,
   ) async {
     return showDialog<bool>(
       context: context,
@@ -117,15 +113,15 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
                 child: Text("Cancel"),
                 onPressed: () {
                   Navigator.pop(context);
-                  _initialNostr.close(message: "Cancel join");
+                  GameManager.roomClient?.close();
+                  GameManager.roomClient = null;
                 },
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(foregroundColor: Colors.green),
                 child: Text("Join"),
                 onPressed: () {
-                  // Saves the data for the Player
-                  _updateNostr();
+                  GameManager.roomClient?.sendJoin(name);
                   Navigator.push(
                     context,
                     MaterialPageRoute(

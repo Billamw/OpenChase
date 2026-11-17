@@ -23,7 +23,7 @@ class Player {
 
   void updatePosition(LatLng newPosition) {
     positionHistory.add(newPosition);
-    newPosition = currentPosition;
+    currentPosition = newPosition;
   }
 
   void revealPosition() {

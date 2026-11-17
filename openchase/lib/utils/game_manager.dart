@@ -1,40 +1,31 @@
+import 'package:latlong2/latlong.dart';
+import 'package:openchase/utils/protocol/room_client.dart';
+
 class GameManager {
-  static String roomPublicKey = "";
-  static String roomPrivateKey = "";
-  static String userName = "";
-  static String roomHost = "";
+  /// Live protocol client, shared across the room flow (lobby → setup → game).
+  static RoomClient? roomClient;
+
   static String roomCode = "";
+  static String roomHost = "";
+  static String userName = "";
   static List players = [];
 
-  static String gamePublicKey = "";
-  static String gamePrivateKey = "";
+  /// Round parameters as received/published via round_start.
+  static LatLng? roundCenter;
+  static int roundRadius = 0;
 
   static void addPlayersWithoutDuplicates(List newPlayers) {
     players = {...players, ...newPlayers}.toList();
   }
 
   static void removeAllData() {
-    roomPublicKey = "";
-    roomPrivateKey = "";
-    userName = "";
-    roomHost = "";
+    roomClient?.close();
+    roomClient = null;
     roomCode = "";
+    roomHost = "";
+    userName = "";
     players = [];
-
-    gamePublicKey = "";
-    gamePrivateKey = "";
-  }
-
-  static String getFormattedRoomInfo() {
-    return '''
-{
-  "roomPublicKey": "$roomPublicKey",
-  "roomPrivateKey": "$roomPrivateKey",
-  "userName": "$userName",
-  "roomHost": "$roomHost",
-  "roomCode": "$roomCode",
-  "players": ${players.toString()}
-}
-''';
+    roundCenter = null;
+    roundRadius = 0;
   }
 }

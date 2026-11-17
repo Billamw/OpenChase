@@ -7,7 +7,6 @@ import 'package:openchase/utils/player.dart';
 import 'package:openchase/utils/circle_generator.dart';
 import 'package:openchase/utils/location_service.dart';
 import 'package:openchase/utils/game_manager.dart';
-import 'package:openchase/utils/nostr/game_nostr.dart';
 
 class MapScreen extends StatefulWidget {
   final List<Player> players;
@@ -21,72 +20,126 @@ class MapScreen extends StatefulWidget {
   });
 
   @override
-  _MapScreenState createState() => _MapScreenState();
+  State<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+  static const _palette = [
+    Colors.blue,
+    Colors.green,
+    Colors.orange,
+    Colors.purple,
+    Colors.red,
+    Colors.teal,
+    Colors.pink,
+    Colors.amber,
+  ];
+
   late final MapController _mapController;
-  late Player _user;
+  final Map<String, Player> _playersByPubkey = {};
+  Player? _user;
   LatLng _currentPosition = LatLng(0, 0);
   bool _loading = true;
   bool _followUser = true;
   late Timer _locationUpdateTimer;
+  late Timer _renderTimer;
+  late Timer _rosterTickTimer;
   final GeolocatorService geolocatorService = GeolocatorService();
-  late GameNostr _gameNostr;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
-    // Find the current user in the player list from GameManager
-    _user = widget.players.firstWhere((p) => p.name == GameManager.userName);
+    final client = GameManager.roomClient;
     _currentPosition = widget.playAreaCenter;
 
-    // Initialize GameNostr and listen for messages
-    _gameNostr = GameNostr(
-      onMessageReceived: (message) {
-        if (message.containsKey("user") &&
-            message.containsKey("lat") &&
-            message.containsKey("lng")) {
-          final playerName = message["user"];
-          final lat = message["lat"];
-          final lng = message["lng"];
-          final newPosition = LatLng(lat, lng);
+    if (client != null) {
+      // Build players from the live roster (identity = pubkey, not name).
+      var i = 0;
+      for (final entry in client.playerPubkeys.entries) {
+        _playersByPubkey[entry.key] = Player(
+          name: entry.value,
+          color: _palette[i++ % _palette.length],
+          positionHistory: [],
+          currentPosition: widget.playAreaCenter,
+        );
+      }
+      _user = _playersByPubkey[client.selfPubkey];
 
-          if (mounted) {
-            setState(() {
-              // Find the player in the list and update their position
-              try {
-                final player = widget.players.firstWhere(
-                  (p) => p.name == playerName,
-                );
-                player.updatePosition(newPosition);
-                player.revealPosition();
-                player.revealPositionHistory();
-              } catch (e) {
-                print("Player not found: $playerName");
-              }
-            });
-          }
-        }
-      },
-    );
+      for (final entry in client.lastLocations.entries) {
+        final p = _playersByPubkey[entry.key];
+        if (p == null) continue;
+        p.updatePosition(LatLng(entry.value.lat, entry.value.lng));
+        p.revealPosition();
+        p.revealPositionHistory();
+      }
 
-    _locationUpdateTimer = Timer.periodic(Duration(seconds: 3), (timer) {
+      client.onLocation = (pubkey, loc) {
+        final p = _playersByPubkey[pubkey];
+        if (p == null) return;
+        p.updatePosition(LatLng(loc.lat, loc.lng));
+        p.revealPosition();
+        p.revealPositionHistory();
+      };
+      client.onRosterChanged = () {
+        _syncRoster();
+        if (mounted) setState(() {});
+      };
+    } else {
+      // Debug/Setup-Test path without a room client.
+      for (final p in widget.players) {
+        _playersByPubkey[p.name] = p;
+      }
+      _user = widget.players.isNotEmpty ? widget.players.first : null;
+    }
+
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _updateLocation();
     });
+    // Batch-render incoming locations instead of setState per packet.
+    _renderTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) setState(() {});
+    });
+    // Host prunes stale players and rebroadcasts roster; players prune locally.
+    _rosterTickTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      GameManager.roomClient?.tick();
+    });
+  }
+
+  void _syncRoster() {
+    final client = GameManager.roomClient;
+    if (client == null) return;
+    final current = client.playerPubkeys;
+    // Removed players
+    _playersByPubkey.removeWhere(
+      (pk, _) => !current.containsKey(pk) && pk != client.selfPubkey,
+    );
+    // New players
+    var i = _playersByPubkey.length;
+    for (final entry in current.entries) {
+      if (!_playersByPubkey.containsKey(entry.key)) {
+        _playersByPubkey[entry.key] = Player(
+          name: entry.value,
+          color: _palette[i++ % _palette.length],
+          positionHistory: [],
+          currentPosition: widget.playAreaCenter,
+        );
+      }
+    }
+    _user = _playersByPubkey[client.selfPubkey] ?? _user;
   }
 
   Future<void> _updateLocation() async {
     try {
-      LatLng position = await geolocatorService.getCurrentLocation();
-      _gameNostr.sendLocation(position); // Send location to backend
+      final client = GameManager.roomClient;
+      final position = await geolocatorService.getCurrentLocation();
+      client?.sendLocation(position.latitude, position.longitude);
       if (mounted) {
         setState(() {
           _currentPosition = position;
-          _user.updatePosition(position);
-          _user.revealPosition();
-          _user.revealPositionHistory();
+          _user?.updatePosition(position);
+          _user?.revealPosition();
+          _user?.revealPositionHistory();
           _loading = false;
         });
 
@@ -95,7 +148,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      print("Fehler beim Abrufen des Standorts: $e");
+      debugPrint("Fehler beim Abrufen des Standorts: $e");
     }
   }
 
@@ -106,12 +159,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _locationUpdateTimer.cancel();
-    _gameNostr.close();
+    _renderTimer.cancel();
+    _rosterTickTimer.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final players = _playersByPubkey.values.toList();
     return Scaffold(
       appBar: AppBar(title: Text('Karte mit Standort')),
       body: Stack(
@@ -141,14 +196,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       points: CircleGenerator.generateCircle(
                         widget.playAreaCenter,
                         widget.playareaRadius.toDouble(),
-                      ), // Circle as Polyline
+                      ),
                       strokeWidth: 8.0,
-                      color: Colors.red, // Randfarbe
+                      color: Colors.red,
                     ),
                   ],
                 ),
-                // Polyline für Spieler
-                ...widget.players.map((player) {
+                // Trails
+                ...players.map((player) {
                   return PolylineLayer(
                     polylines: [
                       if (player.shownPositionHistory.length > 1 &&
@@ -161,10 +216,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ],
                   );
                 }).toList(),
-                // Marker für Spieler
+                // Player markers
                 MarkerLayer(
                   markers:
-                      widget.players.map((player) {
+                      players.map((player) {
                         return Marker(
                           point: player.shownPosition,
                           width: 200,

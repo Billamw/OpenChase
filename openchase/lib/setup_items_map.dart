@@ -148,29 +148,31 @@ class _ItemsTestState extends State<ItemsTest> {
                     padding: const EdgeInsets.all(16.0),
                     child: ElevatedButton(
                       onPressed: () {
-                        // Create Player objects from GameManager
-                        List<Player> players =
-                            GameManager.players.map((playerName) {
-                              // You might want to assign colors and other properties here
-                              return Player(
-                                name: playerName,
-                                isMrX:
-                                    playerName ==
-                                    GameManager
-                                        .roomHost, // Example logic for Mr. X
-                                color: Colors.blue, // Example color
-                                positionHistory: [],
-                                currentPosition:
-                                    widget.playAreaCenter, // Initial position
-                              );
-                            }).toList();
+                        // Host publishes the round: area + placed items go out
+                        // over the room channel; players auto-navigate.
+                        final client = GameManager.roomClient;
+                        GameManager.roundCenter = widget.playAreaCenter;
+                        GameManager.roundRadius = widget.playareaRadius;
+                        client?.publishRoundStart(
+                          center: [
+                            widget.playAreaCenter.latitude,
+                            widget.playAreaCenter.longitude,
+                          ],
+                          radiusM: widget.playareaRadius,
+                          items:
+                              _markerPositions
+                                  .map(
+                                    (p) => [p.latitude, p.longitude],
+                                  )
+                                  .toList(),
+                        );
 
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder:
                                 (context) => MapScreen(
-                                  players: players, // Pass the real player list
+                                  players: const [],
                                   playAreaCenter: widget.playAreaCenter,
                                   playareaRadius: widget.playareaRadius,
                                 ),
