@@ -14,6 +14,10 @@ class GameManager {
   static LatLng? roundCenter;
   static int roundRadius = 0;
 
+  /// Host-chosen round settings (round settings screen).
+  static int roundDurationMin = 30;
+  static Set<String> roundHiders = {};
+
   static void addPlayersWithoutDuplicates(List newPlayers) {
     players = {...players, ...newPlayers}.toList();
   }

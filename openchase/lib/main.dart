@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:openchase/main_screen.dart';
+import 'package:openchase/theme.dart';
 import 'package:openchase/utils/sim_location.dart';
 
 void main() {
@@ -14,9 +15,10 @@ class OpenChaseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Open Chase',
-      theme: ThemeData(
-        // Your theme configuration
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: ocTheme(),
+      darkTheme: ocTheme(),
+      themeMode: ThemeMode.dark,
       home: MainScreen(),
     );
   }

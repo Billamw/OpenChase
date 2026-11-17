@@ -30,11 +30,6 @@ class _ItemsTestState extends State<ItemsTest> {
   List<DragMarker> _dragMarkers = [];
   bool _isLoading = true;
 
-  // Round settings chosen at session start.
-  int _durationMin = 30;
-  static const _durations = [15, 30, 45, 60, 90];
-  final Set<String> _hiderSel = {};
-
   // Zufällige Marker-Positionen
   List<LatLng> _markerPositions = [];
 
@@ -42,38 +37,6 @@ class _ItemsTestState extends State<ItemsTest> {
   void initState() {
     super.initState();
     _fetchWaysAndGenerateMarkers();
-  }
-
-  /// Hiders must stay a minority: at most (n-1)/2 of the roster.
-  int _maxHiders(int n) => max(1, (n - 1) ~/ 2);
-
-  void _toggleHider(String pk) {
-    final roster = GameManager.roomClient?.playerPubkeys.length ?? 0;
-    if (!_hiderSel.contains(pk) && _hiderSel.length >= _maxHiders(roster)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hiders must stay fewer than chasers')),
-      );
-      return;
-    }
-    setState(() {
-      if (_hiderSel.contains(pk)) {
-        _hiderSel.remove(pk);
-      } else {
-        _hiderSel.add(pk);
-      }
-    });
-  }
-
-  void _randomHiders() {
-    final client = GameManager.roomClient;
-    if (client == null) return;
-    final pks = client.playerPubkeys.keys.toList()..shuffle();
-    final k = _maxHiders(pks.length);
-    setState(() {
-      _hiderSel
-        ..clear()
-        ..addAll(pks.take(k));
-    });
   }
 
   Future<void> _fetchWaysAndGenerateMarkers() async {
@@ -209,64 +172,6 @@ class _ItemsTestState extends State<ItemsTest> {
               ? Center(child: CircularProgressIndicator())
               : Column(
                 children: [
-                  // ... (rest of the widget tree)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 4.0,
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('Round duration: '),
-                        DropdownButton<int>(
-                          value: _durationMin,
-                          items: const [
-                            DropdownMenuItem(value: 15, child: Text('15 min')),
-                            DropdownMenuItem(value: 30, child: Text('30 min')),
-                            DropdownMenuItem(value: 45, child: Text('45 min')),
-                            DropdownMenuItem(value: 60, child: Text('60 min')),
-                            DropdownMenuItem(value: 90, child: Text('90 min')),
-                          ],
-                          onChanged:
-                              (v) => setState(() => _durationMin = v ?? 30),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hiders (pick ${GameManager.roomClient != null ? '1-${_maxHiders(GameManager.roomClient!.playerPubkeys.length)}' : '—'}):',
-                        ),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            for (final entry
-                                in GameManager
-                                        .roomClient
-                                        ?.playerPubkeys
-                                        .entries ??
-                                    <MapEntry<String, String>>[])
-                              ChoiceChip(
-                                label: Text(entry.value),
-                                selected: _hiderSel.contains(entry.key),
-                                onSelected:
-                                    (selected) => _toggleHider(entry.key),
-                              ),
-                            ActionChip(
-                              label: const Text('Random'),
-                              avatar: const Icon(Icons.shuffle, size: 16),
-                              onPressed: _randomHiders,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: ElevatedButton(
@@ -274,18 +179,6 @@ class _ItemsTestState extends State<ItemsTest> {
                         // Host publishes the round: area + placed items go out
                         // over the room channel; players auto-navigate.
                         final client = GameManager.roomClient;
-                        final rosterSize = client?.playerPubkeys.length ?? 0;
-                        if (_hiderSel.isEmpty ||
-                            _hiderSel.length > _maxHiders(rosterSize)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Pick 1-${_maxHiders(rosterSize)} hiders (or press Random)',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
                         GameManager.roundCenter = widget.playAreaCenter;
                         GameManager.roundRadius = widget.playareaRadius;
                         client?.publishRoundStart(
@@ -294,8 +187,8 @@ class _ItemsTestState extends State<ItemsTest> {
                             widget.playAreaCenter.longitude,
                           ],
                           radiusM: widget.playareaRadius,
-                          durationSec: _durationMin * 60,
-                          hiders: _hiderSel.toList(),
+                          durationSec: GameManager.roundDurationMin * 60,
+                          hiders: GameManager.roundHiders.toList(),
                           items:
                               _markerPositions
                                   .map(

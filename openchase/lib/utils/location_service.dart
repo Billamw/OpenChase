@@ -5,6 +5,19 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:openchase/utils/sim_location.dart';
 
+/// Asks the OS/browser for location permission once, retry-friendly.
+/// Returns true when granted (SIM builds always pass).
+Future<bool> ensureLocationPermission() async {
+  if (SimLocation.enabled) return true;
+  var status = await Geolocator.checkPermission();
+  if (status == LocationPermission.denied ||
+      status == LocationPermission.deniedForever) {
+    status = await Geolocator.requestPermission();
+  }
+  return status == LocationPermission.always ||
+      status == LocationPermission.whileInUse;
+}
+
 class GeolocatorService {
   LatLng _currentPosition = LatLng(
     51.1657,

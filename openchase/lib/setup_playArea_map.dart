@@ -4,7 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:math';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
-import 'package:openchase/setup_items_map.dart';
+import 'package:openchase/host_settings_screen.dart';
 import 'package:openchase/utils/circle_generator.dart';
 import 'package:openchase/utils/location_service.dart';
 
@@ -89,7 +89,7 @@ class _SetupPageState extends State<SetupPage> {
       body:
           !isLocationSet
               ? Center(
-                child: Text("Sending location data to NSA..."),
+                child: Text("Finding your location..."),
               ) // Meldung während der Standortsuche
               : Column(
                 children: [
@@ -196,14 +196,14 @@ class _SetupPageState extends State<SetupPage> {
                             context,
                             MaterialPageRoute(
                               builder:
-                                  (context) => ItemsTest(
+                                  (context) => HostSettingsScreen(
                                     playAreaCenter: circleLocation,
                                     playareaRadius: radius.toInt(),
                                   ),
                             ),
                           );
                         },
-                        child: Text("Ready"),
+                        child: Text("Continue to round settings"),
                       ),
                     ),
                 ],

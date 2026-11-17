@@ -14,26 +14,26 @@ class PlayerJoinScreen extends StatefulWidget {
 }
 
 class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
-  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
-  final FocusNode _nameFocus = FocusNode();
   final FocusNode _codeFocus = FocusNode();
 
-  String? _nameError;
   String? _codeError;
 
   void _clearErrors() {
     setState(() {
-      _nameError = null;
       _codeError = null;
     });
   }
 
   @override
+  void initState() {
+    super.initState();
+    _codeFocus.requestFocus();
+  }
+
+  @override
   void dispose() {
-    _nameController.dispose();
     _codeController.dispose();
-    _nameFocus.dispose();
     _codeFocus.dispose();
     super.dispose();
   }
@@ -41,15 +41,15 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   Future<void> _joinRoom(BuildContext context) async {
     _clearErrors();
 
-    final name = _nameController.text.trim();
+    final name = GameManager.userName;
     final code = _codeController.text.trim().toUpperCase();
 
     if (name.isEmpty) {
-      setState(() => _nameError = "Name can't be empty");
+      Navigator.pop(context); // back to name entry on the main screen
       return;
     }
-    if (code.length != 4) {
-      setState(() => _codeError = "Room code is 4 letters");
+    if (code.length != 5) {
+      setState(() => _codeError = "Room code is 5 letters");
       return;
     }
 
@@ -147,36 +147,32 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
             Image.asset(UiHelper.getLogoPath(context), height: 80),
             SizedBox(height: 32),
 
-            TextField(
-              controller: _nameController,
-              focusNode: _nameFocus,
-              decoration: InputDecoration(
-                labelText: "Your Name",
-                errorText: _nameError,
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (text) => setState(() {}),
-              textInputAction: TextInputAction.next,
-              onSubmitted: (_) {
-                FocusScope.of(context).requestFocus(_codeFocus);
-              },
+            Text(
+              "Joining as ${GameManager.userName}",
+              style: TextStyle(color: Color(0xFF94A3B8)),
             ),
             SizedBox(height: 16),
 
             TextField(
-              maxLength: 4,
+              maxLength: 5,
               controller: _codeController,
               textInputAction: TextInputAction.done,
               focusNode: _codeFocus,
               onSubmitted: (_) => _joinRoom(context),
               decoration: InputDecoration(
                 labelText: "Room Code",
-                hintText: "XXXX",
+                hintText: "XXXXX",
                 errorText: _codeError,
-                border: OutlineInputBorder(),
+                counterText: '',
               ),
               keyboardType: TextInputType.text,
-              style: TextStyle(fontSize: 24),
+              textCapitalization: TextCapitalization.characters,
+              autofocus: true,
+              style: TextStyle(
+                fontSize: 28,
+                letterSpacing: 8,
+                fontWeight: FontWeight.w700,
+              ),
               textAlign: TextAlign.center,
               onChanged: (text) {
                 setState(() {});
@@ -194,7 +190,7 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
             Align(
               alignment: Alignment.bottomRight,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(minimumSize: Size(150, 50)),
+                style: ElevatedButton.styleFrom(minimumSize: Size(180, 52)),
                 onPressed: () => _joinRoom(context),
                 child: Text("JOIN ROOM"),
               ),
