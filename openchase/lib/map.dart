@@ -7,7 +7,10 @@ import 'package:openchase/utils/player.dart';
 import 'package:openchase/utils/circle_generator.dart';
 import 'package:openchase/utils/location_service.dart';
 import 'package:openchase/utils/game_manager.dart';
+import 'package:openchase/utils/protocol/room_client.dart';
 import 'package:openchase/utils/protocol/room_models.dart';
+import 'package:openchase/setup_items_map.dart';
+import 'package:openchase/main_screen.dart';
 
 class MapScreen extends StatefulWidget {
   final List<Player> players;
@@ -46,6 +49,55 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late Timer _renderTimer;
   late Timer _rosterTickTimer;
   final GeolocatorService geolocatorService = GeolocatorService();
+
+  final Set<String> _trailHidden = {}; // pubkeys whose trail filter is off
+
+  RoomClient? get _client => GameManager.roomClient;
+
+  /// Round is live: host says playing AND the local clock has not expired
+  /// (grace +20 s) — so clients freeze even if a suspended host missed
+  /// publishing round_end on time.
+  bool get _roundActive {
+    final c = _client;
+    if (c == null) return true; // debug path without a room client
+    if (!c.phasePlaying) return false;
+    final nowS = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (c.endsAt > 0 && nowS > c.endsAt + 20) return false;
+    return true;
+  }
+
+  String _countdownLabel() {
+    final c = _client;
+    if (c == null || c.endsAt == 0) return 'OpenChase';
+    final rem = c.endsAt - DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (rem <= 0) return '0:00';
+    final m = rem ~/ 60, s = rem % 60;
+    return 'Round over in $m:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _roundOverLabel() {
+    final c = _client;
+    final tally = '${c!.caughtHiders.length}/${c.hiderPubkeys.length} hiders caught';
+    switch (c.winner) {
+      case 'chasers':
+        return 'Chasers win! $tally';
+      case 'hiders':
+        return 'Hiders win! $tally';
+      default:
+        return 'Time is up — round over. $tally';
+    }
+  }
+
+  void _resetRoundUi() {
+    for (final p in _playersByPubkey.values) {
+      p.positionHistory.clear();
+      p.shownPositionHistory = [];
+      p.trailVisible = true;
+    }
+    _trailHidden.clear();
+    _followUser = true;
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
@@ -86,6 +138,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         _syncRoster();
         if (mounted) setState(() {});
       };
+      // Players already on the map follow new rounds automatically.
+      client.onRoundStart = (_) => _resetRoundUi();
     } else {
       // Debug/Setup-Test path without a room client.
       for (final p in widget.players) {
@@ -168,9 +222,67 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final players = _playersByPubkey.values.toList();
+    // Markers: own always; other players hidden during the round —
+    // revealed when it ends.
+    final players =
+        _playersByPubkey.entries
+            .where((e) {
+              if (_client == null) return true; // debug path
+              if (e.key == _client!.selfPubkey) return true;
+              return !_roundActive;
+            })
+            .map((e) => e.value)
+            .toList();
     return Scaffold(
-      appBar: AppBar(title: Text('Karte mit Standort')),
+      appBar: AppBar(
+        title: Text(_roundActive ? _countdownLabel() : 'Round over'),
+        actions: [
+          if (_client != null && _client!.host && _roundActive)
+            IconButton(
+              tooltip: 'End round now',
+              icon: Icon(Icons.stop_circle_outlined),
+              onPressed: () => _client!.publishRoundEnd(
+                _client!.caughtHiders.length >= _client!.hiderPubkeys.length &&
+                        _client!.hiderPubkeys.isNotEmpty
+                    ? 'chasers'
+                    : 'hiders',
+              ),
+            ),
+          if (_client != null && _client!.host && !_roundActive)
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => ItemsTest(
+                          playAreaCenter: widget.playAreaCenter,
+                          playareaRadius: widget.playareaRadius,
+                        ),
+                  ),
+                );
+              },
+              child: Text(
+                'Next round',
+                style: TextStyle(color: Colors.white, fontSize: 15),
+              ),
+            ),
+          if (_client != null && !_client!.host)
+            IconButton(
+              tooltip: 'Leave game',
+              icon: Icon(Icons.logout),
+              onPressed: () {
+                _client!.sendLeave();
+                GameManager.removeAllData();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => MainScreen()),
+                  (route) => false,
+                );
+              },
+            ),
+        ],
+      ),
       body: Stack(
         children: [
           Listener(
@@ -204,8 +316,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-                // Trails
-                ...players.map((player) {
+                // Trails — recorded live, but only drawn once the round is
+                // over (live trails would expose the hiders). Filter chips
+                // in the bottom bar toggle each player's trail.
+                ..._playersByPubkey.entries.where(
+                  (e) => !_roundActive && !_trailHidden.contains(e.key),
+                ).map((entry) {
+                  final player = entry.value;
                   return PolylineLayer(
                     polylines: [
                       if (player.shownPositionHistory.length > 1 &&
@@ -307,43 +424,121 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                           )
                           .toList(),
                 ),
+                // Meeting point once the round is over: the play-area center.
+                if (_client != null && !_roundActive)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: widget.playAreaCenter,
+                        width: 90,
+                        height: 90,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'MEET HERE',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo[900],
+                              ),
+                            ),
+                            Icon(Icons.flag, size: 40, color: Colors.indigo),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
           if (_loading) Center(child: CircularProgressIndicator()),
+          // Round-over banner: winner + catch tally.
+          if (_client != null && !_roundActive)
+            Positioned(
+              top: 10,
+              left: 16,
+              right: 16,
+              child: Center(
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _roundOverLabel(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            _followUser = true;
-          });
-          _animatedMapMove(_currentPosition, null);
-          _rotateMapBackToNorth();
-        },
-        child: Icon(Icons.my_location),
-      ),
+      floatingActionButton:
+          (_client != null &&
+                  _roundActive &&
+                  _client!.isHider(_client!.selfPubkey) &&
+                  !_client!.isCaught(_client!.selfPubkey))
+              ? FloatingActionButton.extended(
+                  backgroundColor: Colors.red,
+                  onPressed: () => _client!.sendCaught(),
+                  icon: Icon(Icons.flag),
+                  label: Text("I'm caught!"),
+                )
+              : FloatingActionButton(
+                  onPressed: () {
+                    setState(() {
+                      _followUser = true;
+                    });
+                    _animatedMapMove(_currentPosition, null);
+                    _rotateMapBackToNorth();
+                  },
+                  child: Icon(Icons.my_location),
+                ),
       bottomNavigationBar: BottomAppBar(
         color: Colors.blueGrey[900],
         shape: CircularNotchedRectangle(),
         child: Container(
           height: 60,
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          padding: EdgeInsets.symmetric(horizontal: 12),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
             children: [
-              IconButton(
-                icon: Icon(Icons.inventory, color: Colors.white),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: Icon(Icons.map, color: Colors.white),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: Icon(Icons.settings, color: Colors.white),
-                onPressed: () {},
-              ),
+              // Trail filter chips — live round hides trails; once over,
+              // every player's route shows in their color, toggleable here.
+              if (_client != null && !_roundActive)
+                for (final entry in _playersByPubkey.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0, top: 8),
+                    child: ChoiceChip(
+                      label: Text(
+                        entry.value.name,
+                        style: TextStyle(color: entry.value.color),
+                      ),
+                      selected: !_trailHidden.contains(entry.key),
+                      onSelected: (_) {
+                        setState(() {
+                          if (_trailHidden.contains(entry.key)) {
+                            _trailHidden.remove(entry.key);
+                          } else {
+                            _trailHidden.add(entry.key);
+                          }
+                        });
+                      },
+                    ),
+                  )
+              else if (_client != null)
+                Center(
+                  child: Text(
+                    'Routes appear when the round ends',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
             ],
           ),
         ),

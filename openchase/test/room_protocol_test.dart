@@ -58,6 +58,30 @@ void main() {
       expect(loc.lat, 1.0);
     });
 
+    test('round_start carries endsAt and hiders', () {
+      final e = RoomEvent(
+        id: 'aa',
+        pubkey: 'bb',
+        createdAt: 1750000000,
+        kind: RoomKinds.room,
+        data: {
+          'msg': RoomMsg.roundStart,
+          'roundId': 'r1',
+          'center': [1.0, 2.0],
+          'radius': 500,
+          'items': [
+            {'id': 'i0', 'type': 'speed', 'lat': 1.1, 'lng': 2.2},
+          ],
+          'endsAt': 12345,
+          'hiders': ['pkH1', 'pkH2'],
+        },
+      );
+      final r = RoundStartData.from(e)!;
+      expect(r.endsAt, 12345);
+      expect(r.hiders, ['pkH1', 'pkH2']);
+      expect(r.items.first.type, 'speed');
+    });
+
     test('parses items in map and pair form, legacy pairs get ids', () {
       final items = ItemData.parseList([
         {'id': 'x1', 'type': 'health', 'lat': 50.9, 'lng': 6.9},

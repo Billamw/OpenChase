@@ -8,6 +8,7 @@ class RoomKinds {
   static const leave = 20003; // authored by player session key
   static const itemHit = 20004; // authored by player session key: pickup claim
   static const location = 20005; // authored by player session key, 1 Hz
+  static const caught = 20006; // authored by hider session key: admit capture
 }
 
 /// Sub-types carried inside kind `room` content.
@@ -17,6 +18,7 @@ class RoomMsg {
   static const roundStart = 'round_start';
   static const roundEnd = 'round_end';
   static const itemCollected = 'item_collected';
+  static const hiderCaught = 'hider_caught';
 }
 
 /// One parsed room event, relay-agnostic.
@@ -134,6 +136,8 @@ class RoundStartData {
   final double centerLng;
   final int radiusM;
   final List<ItemData> items;
+  final int endsAt; // host wall-clock second when the round expires
+  final List<String> hiders; // hider pubkeys for this round
 
   RoundStartData({
     required this.roundId,
@@ -141,6 +145,8 @@ class RoundStartData {
     required this.centerLng,
     required this.radiusM,
     required this.items,
+    this.endsAt = 0,
+    this.hiders = const [],
   });
 
   static RoundStartData? from(RoomEvent e) {
@@ -154,6 +160,12 @@ class RoundStartData {
       centerLng: (center[1] as num).toDouble(),
       radiusM: radius.toInt(),
       items: ItemData.parseList(e.data['items']),
+      endsAt: e.data['endsAt'] is num ? (e.data['endsAt'] as num).toInt() : 0,
+      hiders: (e.data['hiders'] is List)
+          ? (e.data['hiders'] as List)
+              .whereType<String>()
+              .toList(growable: false)
+          : const [],
     );
   }
 }

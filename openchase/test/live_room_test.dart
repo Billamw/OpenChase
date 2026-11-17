@@ -69,11 +69,17 @@ void main() {
 
       RoundStartData? seenRound;
       player.onRoundStart = (r) => seenRound = r;
-      host.publishRoundStart(center: [50.94, 6.96], radiusM: 750, items: [
-        [50.941, 6.961],
-      ]);
+      host.publishRoundStart(
+        center: [50.94, 6.96],
+        radiusM: 750,
+        durationSec: 120,
+        hiders: [player.selfPubkey],
+        items: [[50.941, 6.961]],
+      );
       await _wait(() => seenRound != null, 20, 'player saw round_start');
       expect(seenRound!.radiusM, 750);
+      expect(seenRound!.hiders, [player.selfPubkey]);
+      expect(seenRound!.endsAt > 0, isTrue);
 
       final hostGotLoc = <String, LocationData>{};
       final playerGotLoc = <String, LocationData>{};
@@ -125,6 +131,28 @@ void main() {
       host.checkItemPickups(item.lat, item.lng);
       await Future.delayed(const Duration(seconds: 1));
       expect(host.collectorOf('i0'), player.selfPubkey);
+
+      // Roles + capture loop: the player is the hider; admitting capture
+      // (honor system) is acknowledged by the host, and with all hiders
+      // caught the round ends immediately — chasers win.
+      expect(player.isHider(player.selfPubkey), isTrue);
+      expect(host.isHider(player.selfPubkey), isTrue);
+      player.sendCaught();
+      await _wait(
+        () => host.isCaught(player.selfPubkey) &&
+            player.isCaught(player.selfPubkey),
+        15,
+        'catch acknowledged on both sides',
+      );
+      await _wait(
+        () => player.winner != null && host.winner != null,
+        15,
+        'round_end reaches both sides',
+      );
+      expect(player.winner, 'chasers');
+      expect(host.winner, 'chasers');
+      expect(player.phasePlaying, isFalse);
+      expect(player.endsAt > DateTime.now().millisecondsSinceEpoch ~/ 1000, isTrue);
 
       host.close();
       player.close();

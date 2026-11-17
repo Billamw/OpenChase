@@ -45,6 +45,13 @@ class RoomClient {
   final Set<String> _hitsSent = {};
   static const pickupRadiusM = 30;
 
+  // Round/role state for the live round.
+  final Set<String> _hiders = {};
+  final Set<String> _caught = {};
+  int _endsAt = 0;
+  String? _winner;
+  Timer? _hostEndTimer;
+
   // Lobby bookkeeping for joiners
   final List<Map<String, dynamic>> _roomInits = [];
 
@@ -66,7 +73,12 @@ class RoomClient {
     if (host) {
       _transport.subscribe('join', [
         {
-          'kinds': [RoomKinds.join, RoomKinds.leave, RoomKinds.itemHit],
+          'kinds': [
+            RoomKinds.join,
+            RoomKinds.leave,
+            RoomKinds.itemHit,
+            RoomKinds.caught,
+          ],
           'since': _sinceWindow(600),
         },
       ]);
@@ -99,6 +111,12 @@ class RoomClient {
   List<ItemData> get roundItems => _roundItems.values.toList(growable: false);
   String? collectorOf(String itemId) => _itemCollectors[itemId];
   void Function(String itemId, String by)? onItemCollected;
+  int get endsAt => _endsAt;
+  String? get winner => _winner;
+  List<String> get hiderPubkeys => _hiders.toList(growable: false);
+  Set<String> get caughtHiders => Set.unmodifiable(_caught);
+  bool isHider(String pubkey) => _hiders.contains(pubkey);
+  bool isCaught(String pubkey) => _caught.contains(pubkey);
   String get selfPubkey => playerKeys.public;
   int get readyRelays => _transport.readyRelays;
   String get hostName => _hostName;
@@ -177,9 +195,12 @@ class RoomClient {
     required List<double> center,
     required int radiusM,
     List<dynamic> items = const [],
+    int durationSec = 1800,
+    List<String> hiders = const [],
   }) {
     final roundId = _newRoundId();
     final normItems = ItemData.parseList(items);
+    final endsAt = currentUnixTimestampSeconds() + durationSec;
     _rosterHeartbeat();
     _publish(
       RoomKinds.room,
@@ -190,6 +211,8 @@ class RoomClient {
         'center': center,
         'radius': radiusM,
         'items': normItems.map((it) => it.toJson()).toList(),
+        'endsAt': endsAt,
+        'hiders': hiders,
         'roster': _rosterJson(),
         'seq': ++_rosterSeq,
       }),
@@ -201,8 +224,66 @@ class RoomClient {
         centerLng: center[1],
         radiusM: radiusM,
         items: normItems,
+        endsAt: endsAt,
+        hiders: hiders,
       ),
     );
+    // Host closes the round when the clock runs out. If the host app is
+    // suspended the clients still freeze locally at endsAt (grace +20 s).
+    _hostEndTimer?.cancel();
+    final secs = (endsAt - currentUnixTimestampSeconds()).clamp(1, 86400);
+    _hostEndTimer = Timer(Duration(seconds: secs), () {
+      if (_phasePlaying && _roundId == roundId && host) {
+        publishRoundEnd('hiders');
+      }
+    });
+  }
+
+  /// Host: authoritative round close. Winner is "chasers" (all hiders
+  /// caught) or "hiders" (clock expired with hiders loose).
+  void publishRoundEnd(String winner) {
+    if (!host) return;
+    _hostEndTimer?.cancel();
+    _publish(
+      RoomKinds.room,
+      roomKeys.roomPrivkey,
+      jsonEncode({
+        'msg': RoomMsg.roundEnd,
+        'code': _roomCode,
+        'roundId': _roundId,
+        'winner': winner,
+      }),
+    );
+  }
+
+  /// Hider: admit capture (honor system). Host acknowledges to everyone.
+  void sendCaught() {
+    _publish(
+      RoomKinds.caught,
+      playerKeys.private,
+      jsonEncode({'code': _roomCode, 'roundId': _roundId}),
+    );
+  }
+
+  void _handleCaught(RoomEvent e) {
+    // kind 20006 is relay-global — only accept traffic for our code.
+    if (e.data['code']?.toString() != _roomCode) return;
+    final pk = e.pubkey;
+    if (!_hiders.contains(pk) || _caught.contains(pk)) return;
+    _caught.add(pk);
+    _publish(
+      RoomKinds.room,
+      roomKeys.roomPrivkey,
+      jsonEncode({
+        'msg': RoomMsg.hiderCaught,
+        'code': _roomCode,
+        'roundId': _roundId,
+        'hider': pk,
+      }),
+    );
+    if (_caught.containsAll(_hiders) && _hiders.isNotEmpty) {
+      publishRoundEnd('chasers');
+    }
   }
 
   /// Periodic tick (every ~20 s): host rebroadcasts roster; everyone prunes
@@ -223,7 +304,10 @@ class RoomClient {
     if (changed) onRosterChanged();
   }
 
-  void close() => _transport.close();
+  void close() {
+    _hostEndTimer?.cancel();
+    _transport.close();
+  }
 
   // ── internals ─────────────────────────────────────────────────────
 
@@ -290,6 +374,8 @@ class RoomClient {
         if (host) _handleJoinLeave(e);
       case RoomKinds.itemHit:
         if (host) _handleItemHit(e);
+      case RoomKinds.caught:
+        if (host) _handleCaught(e);
       case RoomKinds.location:
         _handleLocation(e);
     }
@@ -310,8 +396,16 @@ class RoomClient {
         _applyRoster(e);
         _applyRoundStart(round);
       case RoomMsg.roundEnd:
+        if (e.data['roundId']?.toString() != _roundId) return;
         _phasePlaying = false;
+        final w = e.data['winner']?.toString();
+        if (w != null) _winner = w;
+      case RoomMsg.hiderCaught:
+        if (e.data['roundId']?.toString() != _roundId) return;
+        final h = e.data['hider']?.toString();
+        if (h != null) _caught.add(h);
       case RoomMsg.itemCollected:
+        if (e.data['roundId']?.toString() != _roundId) return;
         final itemId = e.data['itemId']?.toString();
         final by = e.data['by']?.toString();
         if (itemId == null || by == null) return;
@@ -348,6 +442,12 @@ class RoomClient {
     _roundItems = {for (final it in round.items) it.id: it};
     _itemCollectors.clear();
     _hitsSent.clear();
+    _endsAt = round.endsAt;
+    _hiders
+      ..clear()
+      ..addAll(round.hiders);
+    _caught.clear();
+    _winner = null;
     onRoundStart?.call(round);
   }
 
@@ -413,6 +513,7 @@ class RoomClient {
       jsonEncode({
         'msg': RoomMsg.itemCollected,
         'code': _roomCode,
+        'roundId': _roundId,
         'itemId': itemId,
         'by': e.pubkey,
       }),
