@@ -113,7 +113,10 @@ host  ──▶ revealed { playerId, positions: [...] }   (server fan-out only)
 - Items (`Item` model community): host places at setup (`roundStart.items`),
   runtime interactions later (`itemHit { itemId }` → validated proximity ≤
   30 m before `itemCollected`; validator = host or server, same authority axis as
-  reveals). v0.1: host-trusted, proximity check v0.2.
+  - v0.1: host-trusted, proximity check v0.2.
+
+  TODO: for urban maps consider street-network distance (OSRM on the homelab)
+  instead of air distance for pickup validation.
 
 ```
 host ──▶ roundEnd
