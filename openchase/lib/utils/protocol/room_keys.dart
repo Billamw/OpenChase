@@ -30,9 +30,8 @@ class RoomKeys {
   static Keychain generatePlayerKeychain() => Keychain.generate();
 
   static String randomRoomCode() {
-    // Ambiguous glyphs (O/0, I/1) excluded is cosmetic here: alphabet-only
-    // keeps the existing 4-letter UX intact.
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    return List.generate(4, (_) => chars[_rnd.nextInt(chars.length)]).join();
+    // 5 letters, ambiguous glyphs (I/O) excluded for verbal sharing
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    return List.generate(5, (_) => chars[_rnd.nextInt(chars.length)]).join();
   }
 }
