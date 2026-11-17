@@ -9,6 +9,7 @@ import 'package:openchase/utils/location_service.dart';
 import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/protocol/room_client.dart';
 import 'package:openchase/utils/protocol/room_models.dart';
+import 'package:openchase/utils/sim_location.dart';
 import 'package:openchase/setup_items_map.dart';
 import 'package:openchase/main_screen.dart';
 
@@ -466,6 +467,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ),
           ),
           if (_loading) Center(child: CircularProgressIndicator()),
+          if (SimLocation.enabled)
+            Positioned(
+              left: 8,
+              bottom: 78,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade700.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'SIM GPS - WASD moves, Shift fast',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
           // Round-over banner: winner + catch tally.
           if (_client != null && !_roundActive)
             Positioned(

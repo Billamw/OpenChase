@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:openchase/utils/sim_location.dart';
 
 class GeolocatorService {
   LatLng _currentPosition = LatLng(
@@ -37,6 +38,7 @@ class GeolocatorService {
   /// Holt die aktuelle Position, wenn es ein iOS- oder Android-Gerät ist,
   /// ansonsten wird die Standardposition verwendet
   Future<LatLng> _updateLocation() async {
+    if (SimLocation.enabled) return SimLocation.current;
     if (defaultTargetPlatform != TargetPlatform.linux) {
       if (!await _checkLocationPermission()) {
         print("Standortberechtigung verweigert.");
