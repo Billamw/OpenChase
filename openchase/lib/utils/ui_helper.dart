@@ -4,6 +4,7 @@ class UiHelper {
   static EdgeInsets getResponsivePadding(BuildContext context) {
     return EdgeInsets.symmetric(
       horizontal: MediaQuery.of(context).size.width > 600 ? 100 : 16,
+      vertical: 24,
     );
   }
 
