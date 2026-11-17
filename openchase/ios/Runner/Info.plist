@@ -56,5 +56,17 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to location when open.</string>
+	<!-- Background chase support (UIBackgroundModes below). geolocator_apple
+	     only calls requestWhenInUseAuthorization; on sideload builds the
+	     Always option appears in Settings once these keys + background mode
+	     are declared. -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app tracks your position during a game round, also while the app is in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app tracks your position during a game round, also while the app is in the background.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>
