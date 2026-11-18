@@ -7,7 +7,13 @@ import 'package:openchase/utils/protocol/room_keys.dart';
 import 'package:openchase/utils/protocol/room_models.dart';
 import 'package:openchase/utils/protocol/room_transport.dart';
 
-const defaultRelays = ['wss://relay.damus.io', 'wss://nos.lol'];
+const _relaysOverride = String.fromEnvironment('RELAYS');
+List<String> get defaultRelays => _relaysOverride.isNotEmpty
+    ? _relaysOverride.split(',').map((e) => e.trim()).toList()
+    : const [
+        'wss://nos.lol', 'wss://relay.nostr.net',
+        'wss://relay.primal.net', 'wss://nostr.wine',
+      ];
 
 /// One websocket client per device: lobby + game channel share the connection.
 /// Host mode maintains the authoritative roster and rebroadcasts it (roster
@@ -67,11 +73,12 @@ class RoomClient {
     this.onRoundStart,
     this.onRoundEnd,
     this.onLocation,
-    this.relays = defaultRelays,
-  }) : playerKeys = RoomKeys.generatePlayerKeychain() {
+    List<String>? relays,
+  }) : relays = relays ?? defaultRelays,
+       playerKeys = RoomKeys.generatePlayerKeychain() {
     _hostName = playerName;
     _roomCode = roomKeys.code;
-    _transport = RoomTransport(relays: relays, onEvent: _handle);
+    _transport = RoomTransport(relays: this.relays, onEvent: _handle);
     _transport.subscribe('room', [
       {
         'authors': [roomKeys.roomPubkey],
