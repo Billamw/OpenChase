@@ -32,9 +32,10 @@ class _SetupPageState extends State<SetupPage> {
 
   // Method to get the current location using GeolocatorService
   Future<void> _getCurrentLocation() async {
-    // Hier verwenden wir den GeolocatorService, um den Standort zu holen
     try {
-      LatLng position = await geolocatorService.getCurrentLocation();
+      LatLng position = await geolocatorService
+          .getCurrentLocation()
+          .timeout(const Duration(seconds: 8));
 
       // Standort erfolgreich abgerufen
       if (mounted) {
@@ -45,6 +46,19 @@ class _SetupPageState extends State<SetupPage> {
       }
     } catch (e) {
       print("Fehler beim Abrufen des Standorts: $e");
+      // Never leave the host stuck on "Finding your location...": fall back
+      // to a plain map they can pan and tap to place the play area.
+      if (mounted) {
+        setState(() {
+          currentLocation ??= LatLng(50.94, 6.96);
+          circleLocation = currentLocation!;
+          isLocationSet = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              "Couldn't get GPS — pan and tap the map to place the play area."),
+        ));
+      }
     }
   }
 

@@ -48,7 +48,9 @@ class _ItemsTestState extends State<ItemsTest> {
 
     List<LatLng> wayPoints = const [];
     try {
-      final response = await http.get(Uri.parse(overpassUrl));
+      final response = await http
+          .get(Uri.parse(overpassUrl))
+          .timeout(const Duration(seconds: 6));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         wayPoints = _parseWays(data);
