@@ -19,7 +19,7 @@ class OpenChaseApp extends StatelessWidget {
       theme: ocTheme(),
       darkTheme: ocTheme(),
       themeMode: ThemeMode.dark,
-      home: MainScreen(),
+      home: const MainScreen(),
       // Desktop web: cap the app column and let the slate background
       // breathe on both sides; phones are below the cap anyway.
       builder: (context, child) {

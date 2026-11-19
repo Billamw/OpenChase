@@ -5,15 +5,17 @@ import 'package:geolocator/geolocator.dart';
 import 'package:openchase/player_join_screen.dart';
 import 'package:openchase/host_invite_screen.dart';
 import 'package:openchase/theme.dart';
+import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/location_service.dart';
 import 'package:openchase/utils/name_cache.dart';
+import 'package:openchase/utils/protocol/room_session.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 /// Entry screen: asks for location permission on open (it is mandatory),
 /// the name is asked next (pre-filled from the device cache), then host or
 /// join. The name persists across sessions via NameCache.
 class MainScreen extends StatefulWidget {
-  MainScreen({super.key});
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -26,11 +28,16 @@ class _MainScreenState extends State<MainScreen> {
   bool _locationOk = false;
   bool _locChecked = false;
   bool _deniedDialogOpen = false;
+  RoomSession? _session;
 
   @override
   void initState() {
     super.initState();
     unawaited(_ensureLocation());
+    RoomSession.load().then((s) {
+      if (!mounted || s == null) return;
+      setState(() => _session = s);
+    });
     NameCache.load().then((name) {
       if (!mounted) return;
       _nameController.text = name;
@@ -142,6 +149,37 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  /// Reload-resume: rejoin the persisted room with the stored session key.
+  void _resume() {
+    if (!_locationOk) {
+      _showLocationDeniedDialog();
+      return;
+    }
+    final s = _session!;
+    GameManager.userName = s.name;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => s.host
+            ? HostInviteScreen(
+                playerName: s.name,
+                resumeCode: s.code,
+                resumePriv: s.playerPrivkey,
+              )
+            : PlayerJoinScreen(
+                resumeCode: s.code,
+                resumePriv: s.playerPrivkey,
+              ),
+      ),
+    );
+  }
+
+  Future<void> _discardSession() async {
+    await RoomSession.clear();
+    if (!mounted) return;
+    setState(() => _session = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final logoPath = UiHelper.getLogoPath(context);
@@ -177,6 +215,48 @@ class _MainScreenState extends State<MainScreen> {
                       trailing: TextButton(
                         onPressed: _showLocationDeniedDialog,
                         child: const Text('FIX'),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                if (_session != null)
+                  Card(
+                    color: const Color(0xFF16222A),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            _session!.host
+                                ? 'You are hosting room ${_session!.code}'
+                                : 'You are in room ${_session!.code}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Reconnect after this page reload without '
+                            're-entering the code?',
+                            style: TextStyle(
+                              color: OcColors.mutedFg,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: _discardSession,
+                                child: const Text('Forget'),
+                              ),
+                              const SizedBox(width: 4),
+                              FilledButton(
+                                onPressed: _resume,
+                                child: const Text('Resume'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),

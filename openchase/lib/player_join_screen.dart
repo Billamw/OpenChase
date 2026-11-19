@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:nostr/nostr.dart';
 import 'package:openchase/player_invited_screen.dart';
 import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/protocol/room_client.dart';
@@ -7,7 +8,12 @@ import 'package:openchase/utils/protocol/room_keys.dart';
 import 'package:openchase/utils/ui_helper.dart';
 
 class PlayerJoinScreen extends StatefulWidget {
-  const PlayerJoinScreen({super.key});
+  /// Reload-resume: pre-fill the room code and reuse the previous player
+  /// session key so the rejoined player keeps their room identity.
+  final String? resumeCode;
+  final String? resumePriv;
+
+  const PlayerJoinScreen({super.key, this.resumeCode, this.resumePriv});
 
   @override
   State<PlayerJoinScreen> createState() => _PlayerJoinScreenState();
@@ -28,6 +34,10 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.resumeCode != null) {
+      _codeController.text = widget.resumeCode!;
+      return;
+    }
     _codeFocus.requestFocus();
   }
 
@@ -73,6 +83,9 @@ class _PlayerJoinScreenState extends State<PlayerJoinScreen> {
       host: false,
       roomKeys: RoomKeys.fromCode(code),
       playerName: name,
+      playerKeychain: widget.resumePriv == null
+          ? null
+          : Keychain(widget.resumePriv!),
       onRosterChanged: () {},
     );
     final hostName = await client.findRoom(const Duration(seconds: 4));

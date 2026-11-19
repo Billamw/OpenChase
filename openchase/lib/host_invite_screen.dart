@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nostr/nostr.dart';
 import 'package:openchase/utils/ui_helper.dart';
 import 'package:openchase/setup_playArea_map.dart';
 import 'package:openchase/utils/game_manager.dart';
@@ -12,7 +13,18 @@ import 'package:openchase/utils/protocol/room_keys.dart';
 class HostInviteScreen extends StatefulWidget {
   final String playerName;
 
-  const HostInviteScreen({super.key, required this.playerName});
+  /// Reload-resume: reuse the previous room code and player session key so
+  /// this device rejoins its own room as the same identity instead of hosting
+  /// a fresh one.
+  final String? resumeCode;
+  final String? resumePriv;
+
+  const HostInviteScreen({
+    super.key,
+    required this.playerName,
+    this.resumeCode,
+    this.resumePriv,
+  });
 
   @override
   State<HostInviteScreen> createState() => _HostInviteScreenState();
@@ -31,6 +43,9 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
       host: true,
       roomKeys: RoomKeys.fromCode(code),
       playerName: widget.playerName,
+      playerKeychain: widget.resumePriv == null
+          ? null
+          : Keychain(widget.resumePriv!),
       onRosterChanged: () {
         if (!mounted) return;
         setState(() {
@@ -70,6 +85,23 @@ class _HostInviteScreenState extends State<HostInviteScreen> {
   }
 
   Future<void> _start() async {
+    if (widget.resumeCode != null) {
+      // Resume our own room: fixed code + fixed session key, no collision
+      // hunt (our own pre-reload traffic would look like a collision).
+      _generatedCode = widget.resumeCode!;
+      _client = _createClient(_generatedCode);
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      _client!.publishRoomInit();
+      GameManager.roomClient = _client;
+      GameManager.roomCode = _generatedCode;
+      GameManager.roomHost = widget.playerName;
+      setState(() {
+        _players = List.of(_client!.playerNames);
+        _readyRelays = _client!.readyRelays;
+      });
+      return;
+    }
     await _ensureFreeCode();
     if (!mounted) return;
     if (_collision) {

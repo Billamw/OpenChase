@@ -7,6 +7,7 @@ import 'package:openchase/utils/protocol/room_crypto.dart';
 import 'package:openchase/utils/protocol/room_host.dart';
 import 'package:openchase/utils/protocol/room_keys.dart';
 import 'package:openchase/utils/protocol/room_models.dart';
+import 'package:openchase/utils/protocol/room_session.dart';
 import 'package:openchase/utils/protocol/room_transport.dart';
 
 const _relaysOverride = String.fromEnvironment('RELAYS');
@@ -105,10 +106,21 @@ class RoomClient {
     this.onRoundEnd,
     this.onLocation,
     List<String>? relays,
+    Keychain? playerKeychain,
   }) : relays = relays ?? defaultRelays,
-       playerKeys = RoomKeys.generatePlayerKeychain() {
+       playerKeys = playerKeychain ?? RoomKeys.generatePlayerKeychain() {
     _hostName = playerName;
     _roomCode = roomKeys.code;
+    // Persist the room the instant a client exists: a web reload resumes here
+    // instead of the landing page. close() clears it (leave/cancel paths).
+    RoomSession.save(
+      RoomSession(
+        host: host,
+        code: roomKeys.code,
+        name: playerName,
+        playerPrivkey: playerKeys.private,
+      ),
+    );
     _transport = RoomTransport(relays: this.relays, onEvent: _handle);
     _transport.subscribe('room', [
       {
@@ -530,6 +542,7 @@ class RoomClient {
     _huntTimer?.cancel();
     _trailTimer?.cancel();
     _transport.close();
+    RoomSession.clear();
   }
 
   // ── internals ─────────────────────────────────────────────────────────
