@@ -183,3 +183,66 @@ lib/utils/room/
    open game-design question: what does a reveal *cost*?
 4. **Round model**: today there's no timer/win state at all — does v0.1 need
    `roundEnded` *stats*, or keep it minimal (start/end only)?
+
+## 10. Items v1 additions (implemented)
+
+Host-authority: all rule state lives in `RoomHost` (pure Dart, injected clock).
+Room-channel publishes are kind 20001 signed by the room key; player intents are
+kind 20004 (`itemHit`) signed by the player session key; targeted publishes are
+kind 20005 signed by the host player session key and NIP-04-encrypted to the
+receiving player's session pubkey (content `b64?iv=b64`).
+
+`round_start` payload additions: `density` (`less|normal|more`; `''` = pre-v1
+round), `bankCap` (1–5, default 3), `headStartMin` (0/3/5/10), `headStartEndsAt`
+(unix s host wall-clock, 0 = no head start). All `endsAt`/`at` fields in every
+message below are absolute host wall-clock unix seconds — clients count down
+locally and never drive state from their own clocks.
+
+### Phases
+`lobby → placement → head_start → hunt → round_over`.
+- `phase_changed {roundId, phase, at}`
+- `zone_softlock {roundId, seeker, at}` on lock, `{..., released: true}` on
+  release (host-side: only after 2 consecutive out-of-zone pings, 15 m grace;
+  while soft-locked the seeker's positions are suppressed for trails/effects).
+- `anchor_reveal {roundId, at, positions:[{hider,lat,lng}]}` — published exactly
+  once at hunt start, visible to all players by design.
+
+### Items
+- Client intent (kind 20004): `item_use {itemId, target?, center?}` alongside the
+  existing `itemHit {itemId}` pickup intent.
+- `item_collected {roundId, itemId, by, at}` (existing) — host validated the
+  claim against the latest received LocationData (stale > 5 s or distance >
+  15 m + GPS slack → silent reject; first-come wins).
+- `item_rejected {roundId, itemId, reason, to, at}` — pickup-time rejects
+  (`BANK_FULL`).
+- `item_bank_cleared {roundId, by, at}` — caught hider's bank vanishes.
+
+### Effect envelope
+- `effect_started {roundId, itemId, type, target?, center?, endsAt, at, to?}` —
+  item-specific extras: `found` (radar_pulse/proof_of_life), `bearing` +
+  `distanceM` (radar_pulse), `radiusM` (drone), `pinAgeS` (found_clue),
+  `center` + `replay:[[lat,lng],...]` (decoy). `to` = recipient session pubkey
+  where the effect is player-private.
+- `effect_cancelled {roundId, itemId, reason, at}` — one per cancelled effect.
+- `effect_rejected {roundId, itemId, reason, to, at}`.
+- `reveal_notice {roundId, by, target, at}` — every hider hears when revealed.
+- `jam {roundId, by, endsAt, at}` — global 30 s disturber jam.
+- `freeze {roundId, seeker, by, reason:'trapwire', endsAt, at}` — seeker frozen
+  30 s; positions suppressed for trails/effects (self-map keeps updating).
+- `round_timer {roundId, endsAt, at}` — timer rebroadcast after clock± deltas.
+
+Reason codes (closed enum): `JAMMED, NOT_HUNT_PHASE, ALREADY_ACTIVE, WRONG_ROLE,
+BANK_FULL, NOT_IN_BANK, ALREADY_USED, TARGET_INVALID, ALREADY_TRIPPED`.
+Anti-stack: reveal/drone/found_clue/radar_pulse/proof_of_life share one active
+slot per seeker (`ALREADY_ACTIVE`); clock±, disturber, decoy, trapwire,
+walky_talky are exempt. `walky_talky` currently rejects (`ALREADY_USED`,
+voice server deferred).
+
+### Hunt visibility policy
+Hider LocationData is never rebroadcast raw during hunt. Fan-out only via:
+(a) the hider's own trail, (b) eyes-radius — targeted publish
+`{hider, lat, lng, acc, ts, roundId, trail}` encrypted to a seeker within 50 m
+(hysteresis: hold ≤ 55 m, re-acquire ≤ 45 m, re-evaluated on each seeker
+LocationData), (c) effect consumers (reveal target, drone occupants, one-time
+anchor reveal). The host keeps per-player trail buffers with ≥ 180 s retention
+internally (decoy replay, found_clue).

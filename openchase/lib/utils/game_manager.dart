@@ -5,6 +5,16 @@ class GameManager {
   /// Live protocol client, shared across the room flow (lobby → setup → game).
   static RoomClient? roomClient;
 
+  /// Feed the host-side round settings (items v1) into the protocol client.
+  /// Call once after creating the host RoomClient.
+  static void initRoundSettingsProvider() {
+    RoomClient.settingsProvider = () => (
+      density: roundDensity,
+      bankCap: roundBankCap,
+      headStartMin: roundHeadStartMin,
+    );
+  }
+
   static String roomCode = "";
   static String roomHost = "";
   static String userName = "";
@@ -17,6 +27,12 @@ class GameManager {
   /// Host-chosen round settings (round settings screen).
   static int roundDurationMin = 30;
   static Set<String> roundHiders = {};
+
+  // Round settings chosen by the host (items v1). Values ride to the host's
+  // round-start publish once the protocol carries them (backend).
+  static int roundBankCap = 3;
+  static String roundDensity = 'normal'; // less | normal | more
+  static int roundHeadStartMin = 5;
 
   static void addPlayersWithoutDuplicates(List newPlayers) {
     players = {...players, ...newPlayers}.toList();

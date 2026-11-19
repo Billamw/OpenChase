@@ -1,0 +1,173 @@
+{
+  "version": 3,
+  "settings": {
+    "bank_cap_default": 3,
+    "bank_cap_range": [
+      1,
+      5
+    ],
+    "density_options": {
+      "less": 4,
+      "normal": 6,
+      "more": 9
+    },
+    "rarity_weights": {
+      "common": 60,
+      "uncommon": 30,
+      "rare": 10
+    },
+    "head_start_min_default": 5
+  },
+  "items": [
+    {
+      "id": "reveal",
+      "name": "Reveal",
+      "group": "info-seeker",
+      "for": "seeker",
+      "rarity": "rare",
+      "status": "approved",
+      "description": "One hider's exact position live for 30s. All hiders notified on use.",
+      "args": {
+        "duration_s": 30,
+        "target": "named_by_user"
+      }
+    },
+    {
+      "id": "walky_talky",
+      "name": "Walky Talky",
+      "group": "comms",
+      "for": "both",
+      "rarity": "uncommon",
+      "status": "approved",
+      "description": "Push-to-talk private 1:1 channel with one chosen player; one speaker at a time (hold-to-talk). While active, the item itself shows as a red dot \u2014 no separate on-air indicator. Voice server (self-hosted) required, deferred.",
+      "args": {}
+    },
+    {
+      "id": "decoy",
+      "name": "Decoy",
+      "group": "info-hider",
+      "for": "hider",
+      "rarity": "uncommon",
+      "status": "approved",
+      "description": "Fake hider marker spawned within a small radius of the hider; replays the hider's recent trail to look alive.",
+      "args": {
+        "radius_m": 50,
+        "replay_window_s": 180,
+        "lifetime_s": 120
+      }
+    },
+    {
+      "id": "drone",
+      "name": "Drone",
+      "group": "info-seeker",
+      "for": "seeker",
+      "rarity": "rare",
+      "status": "approved",
+      "description": "Arm a zone; any hider inside appears live (position + trail) for the duration, including late arrivals.",
+      "args": {
+        "radius_m": 75,
+        "duration_s": 60
+      }
+    },
+    {
+      "id": "found_clue",
+      "name": "Found Clue",
+      "group": "info-seeker",
+      "for": "seeker",
+      "rarity": "common",
+      "status": "approved",
+      "description": "Shows one hider's position from 1 minute ago as a faded pin.",
+      "args": {
+        "age_s": 60,
+        "target": "named_by_user"
+      }
+    },
+    {
+      "id": "radar_pulse",
+      "name": "Radar Pulse",
+      "group": "info-seeker",
+      "for": "seeker",
+      "rarity": "common",
+      "status": "approved",
+      "description": "One-shot sweep: bearing + distance ring to the nearest hider. No pin.",
+      "args": {}
+    },
+    {
+      "id": "trapwire",
+      "name": "Trapwire",
+      "group": "area-control",
+      "for": "hider",
+      "rarity": "rare",
+      "status": "approved",
+      "description": "Arm an invisible tripwire. A seeker crossing it notifies the hider and freezes that seeker for 30s (honor-system stand-still; their trail flatlines).",
+      "args": {
+        "radius_m": 8,
+        "freeze_s": 30,
+        "lifetime_s": null
+      }
+    },
+    {
+      "id": "clock_plus",
+      "name": "Clock +",
+      "group": "time",
+      "for": "hider",
+      "rarity": "uncommon",
+      "status": "approved",
+      "description": "Round extended by 3 minutes (endsAt += 180). Everyone notified.",
+      "args": {
+        "delta_s": 180
+      }
+    },
+    {
+      "id": "clock_minus",
+      "name": "Clock -",
+      "group": "time",
+      "for": "seeker",
+      "rarity": "uncommon",
+      "status": "approved",
+      "description": "Round shortened by 2 minutes (endsAt -= 120). Everyone notified.",
+      "args": {
+        "delta_s": -120
+      }
+    },
+    {
+      "id": "proof_of_life",
+      "name": "Proof of Life",
+      "group": "info-seeker",
+      "for": "seeker",
+      "rarity": "common",
+      "status": "proposed",
+      "description": "Yes/no ping: is any hider within 150m? No coordinates.",
+      "args": {
+        "radius_m": 150
+      }
+    },
+    {
+      "id": "disturber",
+      "name": "Disturber",
+      "group": "area-control",
+      "for": "hider",
+      "rarity": "rare",
+      "status": "approved",
+      "description": "Hider emits a global jam: ALL seekers see nothing on the map (no pins, zones, trails) and cannot use items for 30s. Jammed seekers get a JAMMED banner + countdown (not a silently broken map). Does not stop physical catching.",
+      "args": {
+        "scope": "global",
+        "duration_s": 30
+      }
+    }
+  ],
+  "decisions": {
+    "hunt_visibility": "no live hider data except within 50m eyes-radius of a seeker; anchor reveal once at hunt start",
+    "item_targeting": "reveal/found_clue: seeker names target player",
+    "use_phase": "items usable only after hunt starts; trapwire arms at hunt start",
+    "trapwire": "arm at hunt start at own position, invisible, whole round, single trigger; seeker sees freeze banner + reason",
+    "pickup": "auto-grab within 15m, host-validated, first-come",
+    "pin_visibility": "item pins visible to everyone from round start",
+    "pool": "single mixed pool, role-lock at use time",
+    "clock": "no total clamp; Clock- cannot end round instantly, hunt keeps >=60s",
+    "zone_lock": "forgiving: 2 consecutive out-of-zone pings + 15m grace, soft-lock warning banner",
+    "round_items": "fresh pool every round (decided)",
+    "own_trail": "hiders see own trail dots, seekers see none (decided)",
+    "catch_loot": "caught hider bank vanishes, no looting (decided)"
+  }
+}

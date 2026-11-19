@@ -10,8 +10,10 @@ import 'package:openchase/utils/game_manager.dart';
 import 'package:openchase/utils/protocol/room_client.dart';
 import 'package:openchase/utils/protocol/room_models.dart';
 import 'package:openchase/utils/sim_location.dart';
-import 'package:openchase/setup_items_map.dart';
+import 'package:openchase/host_settings_screen.dart';
 import 'package:openchase/main_screen.dart';
+import 'package:openchase/item_catalog.dart';
+import 'package:openchase/theme.dart';
 
 class MapScreen extends StatefulWidget {
   final List<Player> players;
@@ -53,6 +55,41 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   final Set<String> _trailHidden = {}; // pubkeys whose trail filter is off
 
+  // Items v1 UI state. Effect state here is a LOCAL PLACEHOLDER: real
+  // effect truth must arrive as host-published events (backend); the UI
+  // renders that once it exists. Never trust this for gameplay decisions.
+  final List<ActiveEffect> _effects = [];
+  String? _talkItemId; // walky_talky channel open -> chip pulses red
+  String? _talkPeerName;
+  LatLng? _dronePlacement; // non-null = drone zone aiming on the map
+  late Timer _effectTickTimer;
+  late final AnimationController _talkPulse;
+  static final Distance _dist = Distance();
+
+  List<ItemData> get _bank {
+    final client = GameManager.roomClient;
+    if (client == null) return const [];
+    return client.roundItems
+        .where((it) => client.collectorOf(it.id) == client.selfPubkey)
+        .take(GameManager.roundBankCap)
+        .toList(growable: false);
+  }
+
+  bool _effectActive(String id) =>
+      _effects.any((e) => e.def.id == id && e.endsAt.isAfter(DateTime.now()));
+
+  /// Seekers see the JAMMED overlay while a disturber effect runs
+  /// (host-published jam events will replace this local placeholder).
+  bool get _jammed =>
+      _effectActive('disturber') &&
+      _client != null &&
+      !_client!.isHider(_client!.selfPubkey);
+
+  DateTime get _jamEnd => _effects
+      .where((e) => e.def.id == 'disturber')
+      .map((e) => e.endsAt)
+      .fold(DateTime.now(), (a, b) => b.isAfter(a) ? b : a);
+
   RoomClient? get _client => GameManager.roomClient;
 
   /// Round is live: host says playing AND the local clock has not expired
@@ -90,6 +127,177 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
   }
 
+  // ---- Items v1 UI (flows are UI-only; effect truth is host-published) ----
+
+  static const double _eyesRadiusM = 50;
+
+  String _mmss(DateTime end) {
+    final rem = (end.difference(DateTime.now()).inSeconds).clamp(0, 1 << 30);
+    return '${rem ~/ 60}:${(rem % 60).toString().padLeft(2, '0')}';
+  }
+
+  bool _withinEyes(LatLng p) =>
+      _dist.distance(p, _currentPosition) <= _eyesRadiusM;
+
+  void _startEffect(ItemDef def, {String? targetName}) {
+    if (def.bannerSec > 0) {
+      setState(() => _effects.add(
+        ActiveEffect(
+          def: def,
+          label: targetName == null ? def.name : '${def.name} → $targetName',
+          endsAt: DateTime.now().add(Duration(seconds: def.bannerSec)),
+        ),
+      ));
+    } else {
+      // Instant/info items have nothing to render until the host publishes
+      // their result (backend). Make that visible instead of silently no-op.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${def.name} queued — result needs host publish (backend)',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _useItem(ItemData item) async {
+    if (_jammed) return;
+    final def = itemDefOf(item.type);
+    if (def.bannerSec > 0 && _effectActive(def.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${def.name} already active')),
+      );
+      return;
+    }
+    switch (def.target) {
+      case ItemTargetMode.player:
+        await _pickPlayer(item, def, hidersOnly: false);
+      case ItemTargetMode.hider:
+        await _pickPlayer(item, def, hidersOnly: true);
+      case ItemTargetMode.zone:
+        setState(() => _dronePlacement = _currentPosition);
+      case ItemTargetMode.position:
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text('Arm ${def.name}?'),
+            content: const Text(
+              'Arms at your current position and stays live all round.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Arm here'),
+              ),
+            ],
+          ),
+        );
+        if (go == true) _startEffect(def);
+      case ItemTargetMode.none:
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text('Use ${def.name}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Use'),
+              ),
+            ],
+          ),
+        );
+        if (go == true) _startEffect(def);
+    }
+  }
+
+  Future<void> _pickPlayer(
+    ItemData item,
+    ItemDef def, {
+    required bool hidersOnly,
+  }) async {
+    final client = _client;
+    if (client == null) return;
+    final entries =
+        client.playerPubkeys.entries
+            .where((e) => !hidersOnly || (client.isHider(e.key) && !client.isCaught(e.key)))
+            .toList();
+    if (entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No target players')),
+      );
+      return;
+    }
+    final pk = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: OcColors.card,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+              child: Text(
+                '${def.name} — pick player',
+                style: const TextStyle(
+                  color: OcColors.fg,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            for (final e in entries)
+              ListTile(
+                leading: Icon(def.icon, color: OcColors.gold),
+                title: Text(
+                  e.value,
+                  style: const TextStyle(color: OcColors.fg),
+                ),
+                onTap: () => Navigator.pop(sheetContext, e.key),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (pk == null || !mounted) return;
+    final name = client.playerPubkeys[pk] ?? '?';
+    if (def.id == 'walky_talky') {
+      // Transport is a placeholder: pairing UI works, voice server is
+      // backend and deferred. The chip itself becomes the on-air dot.
+      setState(() {
+        _talkItemId = item.id;
+        _talkPeerName = name;
+      });
+      _talkPulse.repeat(reverse: true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Channel to $name open — voice transport pending (backend)',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      _startEffect(def, targetName: name);
+    }
+  }
+
+  void _endTalk() {
+    _talkPulse.stop();
+    setState(() {
+      _talkItemId = null;
+      _talkPeerName = null;
+    });
+  }
+
   void _resetRoundUi() {
     for (final p in _playersByPubkey.values) {
       p.positionHistory.clear();
@@ -97,6 +305,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       p.trailVisible = true;
     }
     _trailHidden.clear();
+    _effects.clear();
+    _talkPulse.stop();
+    _talkItemId = null;
+    _talkPeerName = null;
+    _dronePlacement = null;
     _followUser = true;
     if (mounted) setState(() {});
   }
@@ -105,6 +318,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _mapController = MapController();
+    _talkPulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     final client = GameManager.roomClient;
     _currentPosition = widget.playAreaCenter;
 
@@ -142,6 +359,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       };
       // Players already on the map follow new rounds automatically.
       client.onRoundStart = (_) => _resetRoundUi();
+      // Auto-grab feedback: proximity pickup happens in checkItemPickups
+      // (host-validated); here we only toast what the host confirmed.
+      client.onItemCollected = (itemId, by) {
+        if (by != client.selfPubkey) return;
+        final item = client.roundItems.firstWhere(
+          (it) => it.id == itemId,
+          orElse: () => ItemData(id: itemId, type: 'item', lat: 0, lng: 0),
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Picked up ${itemDefOf(item.type).name}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      };
     } else {
       // Debug/Setup-Test path without a room client.
       for (final p in widget.players) {
@@ -152,6 +385,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
     _locationUpdateTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _updateLocation();
+    });
+    // Drive item-effect countdown banners (1 s ticks only while effects
+    // are on screen).
+    _effectTickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final before = _effects.length;
+      _effects.removeWhere((e) => e.endsAt.isBefore(DateTime.now()));
+      if (_effects.isNotEmpty || _effects.length != before) setState(() {});
     });
     // Batch-render incoming locations instead of setState per packet.
     _renderTimer = Timer.periodic(const Duration(seconds: 2), (_) {
@@ -219,6 +460,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _locationUpdateTimer.cancel();
     _renderTimer.cancel();
     _rosterTickTimer.cancel();
+    _effectTickTimer.cancel();
+    _talkPulse.dispose();
+    GameManager.roomClient?.onItemCollected = null;
     super.dispose();
   }
 
@@ -234,12 +478,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
     // Markers: own always; other players hidden during the round —
     // revealed when it ends.
+    // Dark-hunt visibility: while the round runs the map shows NO hider
+    // data outside the 50 m eyes-radius; a jam hides everything but self.
     final players =
         _playersByPubkey.entries
             .where((e) {
               if (_client == null) return true; // debug path
               if (e.key == _client!.selfPubkey) return true;
-              return !_roundActive;
+              if (!_roundActive) return true;
+              if (_jammed) return false;
+              return _client!.isHider(e.key) && _withinEyes(e.value.shownPosition);
             })
             .map((e) => e.value)
             .toList();
@@ -267,7 +515,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   context,
                   MaterialPageRoute(
                     builder:
-                        (context) => ItemsTest(
+                        (context) => HostSettingsScreen(
                           playAreaCenter: widget.playAreaCenter,
                           playareaRadius: widget.playareaRadius,
                         ),
@@ -283,7 +531,31 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             IconButton(
               tooltip: 'Leave game',
               icon: Icon(Icons.logout),
-              onPressed: () {
+              onPressed: () async {
+                final leave = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Leave game?'),
+                    content: const Text(
+                      'You will drop out of the room and this round.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Stay'),
+                      ),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text('Leave'),
+                      ),
+                    ],
+                  ),
+                );
+                if (leave != true) return;
+                if (!context.mounted) return;
                 _client!.sendLeave();
                 GameManager.removeAllData();
                 Navigator.pushAndRemoveUntil(
@@ -310,6 +582,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 initialZoom: 16,
                 maxZoom: 19.6,
                 minZoom: 4.0,
+                onTap: (_, point) {
+                  if (_dronePlacement != null) {
+                    setState(() => _dronePlacement = point);
+                  }
+                },
               ),
               children: [
                 TileLayer(
@@ -328,6 +605,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
+                // Drone zone preview while aiming (75 m per items_v1).
+                if (_dronePlacement != null) ...[
+                  PolygonLayer(
+                    polygons: [
+                      Polygon(
+                        points: CircleGenerator.generateCircle(
+                          _dronePlacement!,
+                          75.0,
+                        ),
+                        color: Colors.amber.withValues(alpha: 0.15),
+                        borderColor: Colors.amber,
+                        borderStrokeWidth: 3,
+                      ),
+                    ],
+                  ),
+                ],
                 // Trails — recorded live, but only drawn once the round is
                 // over (live trails would expose the hiders). Filter chips
                 // in the bottom bar toggle each player's trail.
@@ -369,7 +662,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: player == _user
+                                      ? OcColors.primary
+                                      : Colors.white,
                                   borderRadius: BorderRadius.circular(8),
                                   boxShadow: [
                                     BoxShadow(
@@ -380,13 +675,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                   ],
                                 ),
                                 child: Text(
-                                  player.name,
+                                  player == _user ? 'You' : player.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black,
+                                    color: player == _user
+                                        ? OcColors.onPrimary
+                                        : Colors.black,
                                   ),
                                 ),
                               ),
@@ -507,6 +804,390 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
+          // Google Maps-style floating roster (top right): who is playing;
+          // hiders get a gold eye-off tag.
+          if (_client != null)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                width: 190,
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: OcColors.card.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(OcColors.radius),
+                  border: Border.all(color: OcColors.border),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black45, blurRadius: 8),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Playing — ${_playersByPubkey.length}',
+                      style: const TextStyle(
+                        color: OcColors.fg,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final entry in _playersByPubkey.entries)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: entry.value.color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                entry.value.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: OcColors.fg,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            if (_client!.isHider(entry.key)) ...[
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.visibility_off,
+                                size: 14,
+                                color: OcColors.gold,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          // Effect countdown banners: stacked top-center under the AppBar
+          // (round timer stays in the AppBar title, both fit).
+          if (_effects.isNotEmpty)
+            Positioned(
+              top: 8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final e in _effects)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: rarityColor(e.def.rarity)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(e.def.icon, size: 16, color: Colors.white),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${e.label}  ${_mmss(e.endsAt)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          // Drone zone aiming controls (circle preview follows map taps).
+          if (_dronePlacement != null)
+            Positioned(
+              bottom: 96,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Tap map to place the 75 m zone',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(80, 34),
+                        ),
+                        onPressed: () {
+                          final def = itemDefOf('drone');
+                          setState(() => _dronePlacement = null);
+                          _startEffect(def);
+                        },
+                        child: const Text('Confirm'),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                        ),
+                        onPressed: () =>
+                            setState(() => _dronePlacement = null),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          // Item bank row (bottom center): one chip per held item, rarity
+          // badge per chip. Jam greys the row and blocks taps.
+          if (_client != null && (_bank.isNotEmpty || _talkItemId != null))
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Center(
+                child: IgnorePointer(
+                  ignoring: _jammed,
+                  child: AnimatedOpacity(
+                    opacity: _jammed ? 0.35 : 1,
+                    duration: const Duration(milliseconds: 250),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_talkItemId != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GestureDetector(
+                                onLongPressStart: (_) =>
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Hold-to-talk placeholder — voice '
+                                          'transport pending (backend)',
+                                        ),
+                                      ),
+                                    ),
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade700,
+                                    borderRadius: BorderRadius.circular(
+                                      OcColors.radius,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.mic,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Hold to talk — $_talkPeerName',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white70,
+                                ),
+                                onPressed: _endTalk,
+                                child: const Text('End'),
+                              ),
+                            ],
+                          ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: OcColors.card.withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(OcColors.radius),
+                            border: Border.all(color: OcColors.border),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black45, blurRadius: 8),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final it in _bank)
+                                Builder(
+                                  builder: (context) {
+                                    final def = itemDefOf(it.type);
+                                    final onAir = _talkItemId == it.id;
+                                    return GestureDetector(
+                                      onTap: () => _useItem(it),
+                                      child: Container(
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: OcColors.field,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: onAir
+                                                ? Colors.red
+                                                : rarityColor(def.rarity),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (onAir)
+                                              AnimatedBuilder(
+                                                animation: _talkPulse,
+                                                builder: (context, _) =>
+                                                    Container(
+                                                      width: 22,
+                                                      height: 22,
+                                                      margin: const EdgeInsets
+                                                          .symmetric(vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red
+                                                            .withValues(
+                                                              alpha: 0.4 +
+                                                                  0.6 *
+                                                                      _talkPulse
+                                                                          .value,
+                                                            ),
+                                                        shape: BoxShape.circle,
+                                                        boxShadow: const [
+                                                          BoxShadow(
+                                                            color: Colors
+                                                                .redAccent,
+                                                            blurRadius: 8,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                              )
+                                            else
+                                              Icon(
+                                                def.icon,
+                                                color: rarityColor(def.rarity),
+                                                size: 22,
+                                              ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 7,
+                                                  height: 7,
+                                                  decoration: BoxDecoration(
+                                                    color: rarityColor(
+                                                      def.rarity,
+                                                    ),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  def.name,
+                                                  style: const TextStyle(
+                                                    color: OcColors.fg,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // JAMMED overlay for jammed seekers — a loud "you see nothing",
+          // not a silently broken map.
+          if (_jammed)
+            Positioned.fill(
+              child: AbsorbPointer(
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'JAMMED',
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Map and items offline  ${_mmss(_jamEnd)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
       floatingActionButton:
@@ -530,49 +1211,43 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 },
                 child: Icon(Icons.my_location),
               ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.blueGrey[900],
-        shape: CircularNotchedRectangle(),
-        child: Container(
-          height: 60,
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              // Trail filter chips — live round hides trails; once over,
-              // every player's route shows in their color, toggleable here.
-              if (_client != null && !_roundActive)
-                for (final entry in _playersByPubkey.entries)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0, top: 8),
-                    child: ChoiceChip(
-                      label: Text(
-                        entry.value.name,
-                        style: TextStyle(color: entry.value.color),
+      bottomNavigationBar: (_client != null && !_roundActive)
+          ? BottomAppBar(
+              color: Colors.blueGrey[900],
+              shape: CircularNotchedRectangle(),
+              child: Container(
+                height: 60,
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    // Trail filter chips — every player's route shows in
+                    // their color, toggleable here.
+                    for (final entry in _playersByPubkey.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0, top: 8),
+                        child: ChoiceChip(
+                          label: Text(
+                            entry.value.name,
+                            style: TextStyle(color: entry.value.color),
+                          ),
+                          selected: !_trailHidden.contains(entry.key),
+                          onSelected: (_) {
+                            setState(() {
+                              if (_trailHidden.contains(entry.key)) {
+                                _trailHidden.remove(entry.key);
+                              } else {
+                                _trailHidden.add(entry.key);
+                              }
+                            });
+                          },
+                        ),
                       ),
-                      selected: !_trailHidden.contains(entry.key),
-                      onSelected: (_) {
-                        setState(() {
-                          if (_trailHidden.contains(entry.key)) {
-                            _trailHidden.remove(entry.key);
-                          } else {
-                            _trailHidden.add(entry.key);
-                          }
-                        });
-                      },
-                    ),
-                  )
-              else if (_client != null)
-                Center(
-                  child: Text(
-                    'Routes appear when the round ends',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  ],
                 ),
-            ],
-          ),
-        ),
-      ),
+              ),
+            )
+          : null,
     );
   }
 
